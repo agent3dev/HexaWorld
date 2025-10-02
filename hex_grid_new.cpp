@@ -25,8 +25,6 @@ void HexGrid::add_hexagon(int q, int r) {
         hexagons[{q, r}] = {x, y};
 
         // Assign terrain type based on adjacency
-        static std::random_device rd;
-        static std::mt19937 gen(rd());
         std::uniform_real_distribution<> rand_prob(0.0, 1.0);
         std::uniform_real_distribution<> nutrient_var(-0.2, 0.2);
 
@@ -46,7 +44,7 @@ void HexGrid::add_hexagon(int q, int r) {
         if (neighbor_counts.empty()) {
             // No neighbors, random, allow some rocks
             std::uniform_int_distribution<> dis(0, 9);
-            int rand_val = dis(gen);
+            int rand_val = dis(hexaworld::gen);
             if (rand_val < 2) { // 20% rock
                 type = ROCK;
             } else if (rand_val < 6) { // 40% soil
@@ -56,10 +54,10 @@ void HexGrid::add_hexagon(int q, int r) {
             }
         } else {
                 // 30% chance to be random anyway
-                if (rand_prob(gen) < 0.3) {
+                if (rand_prob(hexaworld::gen) < 0.3) {
                     // Random with some rocks
                     std::uniform_int_distribution<> dis(0, 9);
-                    int rand_val = dis(gen);
+                    int rand_val = dis(hexaworld::gen);
                     if (rand_val < 2) { // 20% rock
                         type = ROCK;
                     } else if (rand_val < 6) { // 40% soil
@@ -88,12 +86,12 @@ void HexGrid::add_hexagon(int q, int r) {
             case WATER: base_nutrients = 0.5f; break;
             case ROCK: base_nutrients = 0.2f; break;
         }
-        float nutrients = std::clamp(base_nutrients + static_cast<float>(nutrient_var(gen)), 0.0f, 1.0f);
+        float nutrients = std::clamp(base_nutrients + static_cast<float>(nutrient_var(hexaworld::gen)), 0.0f, 1.0f);
 
         terrainTiles.insert({{q, r}, TerrainTile(q, r, type, nutrients)});
 
         // Spawn plant on soil with chance
-        if (type == SOIL && rand() % 100 < 10) { // 10% chance
+        if (type == SOIL && (hexaworld::gen() % 100) < 10) { // 10% chance
             plants.insert({{q, r}, Plant(q, r, SEED, nutrients)});
         }
     }
@@ -293,12 +291,27 @@ void HexGrid::remove_plant(int q, int r) {
 void Hare::update(HexGrid& grid, float delta_time) {
     if (is_dead) return;  // Already dead
 
-    // Decay energy
-    energy -= delta_time * 0.05f;
+    // Small time-based energy decay
+    energy -= delta_time * 0.01f;
     energy = std::max(0.0f, energy);
 
+    // Digest
+    digestion_time -= delta_time;
+
     // Eat if on plant
-    eat(grid);
+    bool ate = eat(grid);
+    if (ate) {
+        digestion_time = 5.0f;  // 5 seconds digestion
+    }
+
+    // Poop after digestion
+    if (digestion_time <= 0.0f && digestion_time > -1.0f) {  // Trigger once
+        auto it = grid.terrainTiles.find({q, r});
+        if (it != grid.terrainTiles.end() && it->second.type == SOIL) {
+            grid.plants.insert({{q, r}, Plant(q, r, SEED, it->second.nutrients)});
+        }
+        digestion_time = -1.0f;  // Prevent repeat
+    }
 
     // Update allowed terrains: in panic mode (low energy), can go to rocks
     allowed_terrains = {SOIL};
@@ -306,8 +319,9 @@ void Hare::update(HexGrid& grid, float delta_time) {
         allowed_terrains.push_back(ROCK);
     }
 
-    // Move if energy allows
-    if (energy > 0.2f) {
+    // Move if energy allows and cooldown passed
+    move_timer += delta_time;
+    if (move_timer >= 0.5f && energy > 0.2f) {
         // Find valid directions
         std::vector<int> valid_dirs;
         for (int dir = 0; dir < 6; ++dir) {
@@ -321,16 +335,19 @@ void Hare::update(HexGrid& grid, float delta_time) {
         }
 
         if (!valid_dirs.empty()) {
-            // Prefer directions with plants
+            // Prefer directions with edible plants (not seeds)
             std::vector<int> plant_dirs;
             for (int dir : valid_dirs) {
                 auto [nq, nr] = grid.get_neighbor_coords(q, r, dir);
-                if (grid.get_plant(nq, nr)) {
+                Plant* p = grid.get_plant(nq, nr);
+                if (p && p->stage != SEED) {
                     plant_dirs.push_back(dir);
                 }
             }
-            int chosen_dir = plant_dirs.empty() ? valid_dirs[rand() % valid_dirs.size()] : plant_dirs[rand() % plant_dirs.size()];
+            int chosen_dir = plant_dirs.empty() ? valid_dirs[hexaworld::gen() % valid_dirs.size()] : plant_dirs[hexaworld::gen() % plant_dirs.size()];
             move(chosen_dir);
+            energy -= 0.02f; // Lower energy cost per move
+            move_timer = 0.0f; // Reset timer on move
         }
     }
 
@@ -346,7 +363,7 @@ void Hare::update(HexGrid& grid, float delta_time) {
     }
 }
 
-void Hare::eat(HexGrid& grid) {
+bool Hare::eat(HexGrid& grid) {
     Plant* plant = grid.get_plant(q, r);
     if (plant && plant->stage != SEED) {  // Cannot eat seeds
         // Gain energy based on stage
@@ -357,7 +374,9 @@ void Hare::eat(HexGrid& grid) {
         }
         energy = std::min(1.0f, energy);
         grid.remove_plant(q, r);
+        return true;
     }
+    return false;
 }
 
 // ============================================================================

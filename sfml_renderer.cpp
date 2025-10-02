@@ -23,6 +23,7 @@ SFMLRenderer::SFMLRenderer(int width, int height, const std::string& title, bool
             throw std::runtime_error("Failed to create SFML window - no display available");
         }
 
+        window_->setPosition(sf::Vector2i(0, 0));
         window_->setVerticalSyncEnabled(true);
         loadFont();
     } catch (const std::exception& e) {

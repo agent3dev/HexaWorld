@@ -33,8 +33,9 @@ struct Plant {
     int q, r;
     PlantStage stage;
     float growth_time;
+    float drop_time;
     float nutrients; // cached from tile
-    Plant(int q, int r, PlantStage stage, float nutrients) : q(q), r(r), stage(stage), growth_time(0.0f), nutrients(nutrients) {}
+    Plant(int q, int r, PlantStage stage, float nutrients) : q(q), r(r), stage(stage), growth_time(0.0f), drop_time(0.0f), nutrients(nutrients) {}
 };
 
 // ============================================================================
@@ -119,6 +120,8 @@ struct Hare : public HexObject {
     float energy = 1.0f;
     sf::Color base_color = sf::Color(210, 180, 140); // Khaki
     bool is_dead = false;
+    float digestion_time = 0.0f;
+    float move_timer = 0.0f;
 
     Hare(int q, int r) : HexObject(q, r) {}
 
@@ -126,7 +129,7 @@ struct Hare : public HexObject {
     void update(HexGrid& grid, float delta_time);
 
     // Eat plant at current position
-    void eat(HexGrid& grid);
+    bool eat(HexGrid& grid);
 };
 
 // ============================================================================

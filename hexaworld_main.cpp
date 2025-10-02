@@ -9,11 +9,15 @@
 #include <SFML/Window.hpp>
 #include <vector>
 
+namespace hexaworld {
+std::mt19937 gen(42); // Fixed seed for repeatable simulation
+}
+
 int main() {
     try {
 
-        // Create renderer in fullscreen mode
-        hexaworld::SFMLRenderer renderer(1200, 800, "HexaWorld - Hexagonal Grid", true);
+        // Create renderer in windowed mode
+        hexaworld::SFMLRenderer renderer(1280, 1024, "HexaWorld - Hexagonal Grid", false);
         renderer.setFramerateLimit(60); // Limit FPS to reduce CPU usage
 
         // Center the grid in the window
@@ -47,9 +51,25 @@ int main() {
                 }
             }
              if (hexGrid.hexagons.size() == old_size) break;
-         }
+          }
 
-         // Remove isolated water tiles
+          // Remove terrain and plants for removed hexagons
+          for (auto it = hexGrid.terrainTiles.begin(); it != hexGrid.terrainTiles.end(); ) {
+              if (hexGrid.hexagons.find(it->first) == hexGrid.hexagons.end()) {
+                  it = hexGrid.terrainTiles.erase(it);
+              } else {
+                  ++it;
+              }
+          }
+          for (auto it = hexGrid.plants.begin(); it != hexGrid.plants.end(); ) {
+              if (hexGrid.hexagons.find(it->first) == hexGrid.hexagons.end()) {
+                  it = hexGrid.plants.erase(it);
+              } else {
+                  ++it;
+              }
+          }
+
+          // Remove isolated water tiles
          for (auto it = hexGrid.terrainTiles.begin(); it != hexGrid.terrainTiles.end(); ) {
              auto [q, r] = it->first;
              if (it->second.type == hexaworld::WATER) {
@@ -77,32 +97,47 @@ int main() {
             else if (tile.type == hexaworld::WATER) water_count++;
             else if (tile.type == hexaworld::ROCK) rock_count++;
         }
-        std::cout << "Terrain: SOIL " << soil_count << ", WATER " << water_count << ", ROCK " << rock_count << std::endl;
+         std::cout << "Terrain: SOIL " << soil_count << ", WATER " << water_count << ", ROCK " << rock_count << std::endl;
 
-        // Plants are now spawned in add_hexagon, but ensure some exist
-        // Add extra plants if needed
-        std::vector<std::pair<int, int>> soil_coords;
-        for (const auto& [coord, tile] : hexGrid.terrainTiles) {
-            if (tile.type == hexaworld::SOIL) {
-                soil_coords.push_back(coord);
-            }
-        }
-        std::random_device rd;
-        std::mt19937 gen(rd());
-        std::shuffle(soil_coords.begin(), soil_coords.end(), gen);
-        size_t num_plants = std::min(20, (int)soil_coords.size());
-        for (size_t i = 0; i < num_plants; ++i) {
-            auto [q, r] = soil_coords[i];
-            if (!hexGrid.get_plant(q, r)) {
-                auto it = hexGrid.terrainTiles.find({q, r});
-                if (it != hexGrid.terrainTiles.end()) {
-                    hexGrid.plants.insert({{q, r}, hexaworld::Plant(q, r, hexaworld::SEED, it->second.nutrients)});
-                }
-            }
-        }
+          // Plants are now spawned in add_hexagon, but ensure some exist
+         std::vector<std::pair<int, int>> soil_coords;
+         // Add extra plants if needed
+         for (const auto& [coord, tile] : hexGrid.terrainTiles) {
+             if (tile.type == hexaworld::SOIL) {
+                 soil_coords.push_back(coord);
+             }
+         }
+         std::shuffle(soil_coords.begin(), soil_coords.end(), hexaworld::gen);
+         size_t num_plants = std::min<size_t>(40, soil_coords.size());
+         for (size_t i = 0; i < num_plants; ++i) {
+             auto [q, r] = soil_coords[i];
+             if (!hexGrid.get_plant(q, r)) {
+                 auto it = hexGrid.terrainTiles.find({q, r});
+                 if (it != hexGrid.terrainTiles.end()) {
+                     hexGrid.plants.insert({{q, r}, hexaworld::Plant(q, r, hexaworld::SEED, it->second.nutrients)});
+                 }
+             }
+         }
+
+         // Add some mature plants for immediate food
+         std::shuffle(soil_coords.begin(), soil_coords.end(), hexaworld::gen); // reshuffle
+         int num_sprouts = std::min(20, (int)soil_coords.size() / 2);
+         for (int i = 0; i < num_sprouts; ++i) {
+             auto [q, r] = soil_coords[i];
+             if (!hexGrid.get_plant(q, r)) {
+                 hexGrid.plants.insert({{q, r}, hexaworld::Plant(q, r, hexaworld::SPROUT, hexGrid.terrainTiles.at({q, r}).nutrients)});
+             }
+         }
+         int num_mature = std::min(10, (int)soil_coords.size() / 4);
+         for (int i = num_sprouts; i < num_sprouts + num_mature && i < (int)soil_coords.size(); ++i) {
+             auto [q, r] = soil_coords[i];
+             if (!hexGrid.get_plant(q, r)) {
+                 hexGrid.plants.insert({{q, r}, hexaworld::Plant(q, r, hexaworld::PLANT, hexGrid.terrainTiles.at({q, r}).nutrients)});
+             }
+          }
 
 
-         // Create a movable object
+          // Create a movable object
         hexaworld::HexObject obj(0, 0);
         auto last_move = std::chrono::steady_clock::now();
         bool showObject = false;
@@ -117,7 +152,7 @@ int main() {
         for (const auto& [coord, plant] : hexGrid.plants) {
             plant_coords.push_back(coord);
         }
-        std::shuffle(plant_coords.begin(), plant_coords.end(), gen);
+        std::shuffle(plant_coords.begin(), plant_coords.end(), hexaworld::gen);
         size_t grid_size = hexGrid.hexagons.size();
         size_t num_hares = std::max<size_t>(10, grid_size / 500);
         num_hares = std::min(num_hares, plant_coords.size());
@@ -158,12 +193,33 @@ int main() {
             float dt = renderer.getDeltaTime();
             for (auto& [coord, plant] : hexGrid.plants) {
                 plant.growth_time += dt;
-                float threshold = 10.0f / (plant.nutrients + 0.1f); // avoid division by zero
+                float threshold = 20.0f / (plant.nutrients + 0.1f); // Slower growth
                 if (plant.growth_time >= threshold) {
                     if (plant.stage < hexaworld::PLANT) {
                         plant.stage = static_cast<hexaworld::PlantStage>(plant.stage + 1);
                     }
                     plant.growth_time = 0.0f;
+                }
+
+                // Mature plants drop seeds randomly
+                if (plant.stage == hexaworld::PLANT) {
+                    plant.drop_time += dt;
+                    if (plant.drop_time >= 10.0f) { // Every 10 seconds
+                        if ((hexaworld::gen() % 100) < 20) { // 20% chance
+                            // Drop seeds in soil neighbors without plants
+                            for (int dir = 0; dir < 6; ++dir) {
+                                auto [nq, nr] = hexGrid.get_neighbor_coords(plant.q, plant.r, dir);
+                                if (hexGrid.has_hexagon(nq, nr) &&
+                                    hexGrid.get_terrain_type(nq, nr) == hexaworld::SOIL &&
+                                    !hexGrid.get_plant(nq, nr)) {
+                                    auto tit = hexGrid.terrainTiles.find({nq, nr});
+                                    float nutrients = (tit != hexGrid.terrainTiles.end()) ? tit->second.nutrients : 0.5f;
+                                    hexGrid.plants.insert({{nq, nr}, hexaworld::Plant(nq, nr, hexaworld::SEED, nutrients)});
+                                }
+                            }
+                        }
+                        plant.drop_time = 0.0f;
+                    }
                 }
             }
 
@@ -177,28 +233,14 @@ int main() {
                 return h.is_dead;
             }), hares.end());
 
-            // Log hare status every 5 seconds
-            if (enableHareLogging) {
-                auto now = std::chrono::steady_clock::now();
-                if (now - last_log > std::chrono::seconds(5)) {
-                    for (size_t i = 0; i < hares.size(); ++i) {
-                        const auto& hare = hares[i];
-                        if (hare.energy > 0) {
-                            std::cout << "Hare #" << i << " is alive (energy: " << hare.energy << ")" << std::endl;
-                        }
-                    }
-                    last_log = now;
-                }
-            }
+
 
             // Move object randomly every second
             if (showObject) {
                 auto now = std::chrono::steady_clock::now();
                 if (now - last_move > std::chrono::seconds(1)) {
-                    std::random_device rd;
-                    std::mt19937 gen(rd());
                     std::uniform_int_distribution<> dis(0, 5);
-                    int dir = dis(gen);
+                    int dir = dis(hexaworld::gen);
                     obj.move(dir);
                     last_move = now;
                 }
