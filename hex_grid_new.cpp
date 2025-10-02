@@ -146,7 +146,7 @@ void HexGrid::draw(SFMLRenderer& renderer, uint8_t r, uint8_t g, uint8_t b,
                 static auto start_time = std::chrono::steady_clock::now();
                 auto current_time = std::chrono::steady_clock::now();
                 float time = std::chrono::duration<float>(current_time - start_time).count();
-                float speed = (type == ROCK) ? 2.0f : (type == SOIL) ? 4.0f : 8.0f;
+                float speed = (type == ROCK) ? ROCK_ANIM_SPEED : (type == SOIL) ? SOIL_ANIM_SPEED : WATER_ANIM_SPEED;
                 float mod = sin(time * speed) * 20.0f;
                 uint8_t tr = std::clamp((int)br + (int)mod, 0, 255);
                 uint8_t tg = std::clamp((int)bg + (int)mod, 0, 255);
