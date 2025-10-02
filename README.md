@@ -1,13 +1,18 @@
-# HexaWorld - Hexagonal Grid Visualization
+# HexaWorld - Evolutionary Ecosystem Simulation
 
-A standalone C++ application that demonstrates hexagonal grid generation and rendering using SFML.
+A real-time C++ simulation of an evolutionary ecosystem on a hexagonal grid, featuring herbivores (hares), carnivores (foxes), plants, and genetic adaptation. Built with SFML for visualization.
 
 ## Features
 
-- **Hexagonal Grid Generation**: Creates expandable hexagonal grids using axial coordinates
-- **SFML Rendering**: Real-time visualization of hexagonal grids
-- **Configurable Layers**: Expand the grid by adding concentric layers of hexagons
-- **Clean Architecture**: Standalone implementation without game dependencies
+- **Hexagonal Grid Ecosystem**: Dynamic terrain with soil, rock, and water tiles
+- **Evolutionary Simulation**: Genetic algorithms for hare and fox traits (speed, efficiency, reproduction, camouflage)
+- **Plant Growth System**: Seeds sprout into plants that drop new seeds
+- **Predator-Prey Dynamics**: Foxes hunt hares with visibility-based detection
+- **Genetic Traits**:
+  - Hare: Reproduction threshold, movement aggression, weight, fear, movement efficiency, burrowing ability
+  - Fox: Reproduction threshold, hunting aggression, weight, movement efficiency
+- **Interactive Visualization**: Real-time population graphs, smooth animations, antialiasing
+- **Terrain Interactions**: Hares burrow to hide, access rocks/water based on traits
 
 ## Mathematical Background
 
@@ -48,6 +53,8 @@ make
 ### Controls
 
 - **ESC**: Exit the application
+- **C**: Toggle object visibility
+- **G**: Log current hare genomes
 
 ## Grid Structure
 
@@ -63,15 +70,18 @@ The hexagonal grid starts with a center hexagon and expands outward:
 
 ### Files
 
-- `hex_grid_new.hpp/cpp`: HexGrid class with axial coordinate system
-- `sfml_renderer.hpp/cpp`: SFML-based rendering utilities
-- `hexaworld_main.cpp`: Main application entry point
+- `hex_grid_new.hpp/cpp`: HexGrid, Hare, Fox classes with simulation logic
+- `sfml_renderer.hpp/cpp`: SFML-based rendering with antialiasing
+- `ga.hpp`: Genetic algorithm structures for evolution
+- `hexaworld_main.cpp`: Main simulation loop and initialization
 - `CMakeLists.txt`: Build configuration
 
 ### Classes
 
-- **HexGrid**: Manages hexagonal grid with automatic neighbor generation
-- **SFMLRenderer**: Handles window management and drawing primitives
+- **HexGrid**: Manages terrain, plants, and hexagonal grid
+- **Hare/Fox**: Animal classes with genetic traits and behaviors
+- **SFMLRenderer**: Handles window, drawing, and input
+- **GeneticAlgorithm**: Evolution through mutation and selection
 
 ## Technical Details
 
@@ -82,7 +92,8 @@ The hexagonal grid starts with a center hexagon and expands outward:
 
 ## Future Enhancements
 
-- Interactive grid expansion (keyboard controls)
-- Different grid patterns and shapes
-- Color schemes and visual effects
-- Performance optimizations for larger grids
+- Additional species (apex predators, omnivores)
+- Dynamic environmental changes (seasons, disasters)
+- Advanced AI behaviors (memory, cooperation)
+- Multiplayer or networked simulations
+- Data export for analysis

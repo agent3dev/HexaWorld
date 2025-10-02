@@ -10,7 +10,7 @@ namespace hexaworld {
 
 class SFMLRenderer {
 public:
-    SFMLRenderer(int width, int height, const std::string& title, bool fullscreen);
+    SFMLRenderer(int width, int height, const std::string& title, bool fullscreen, int antialiasing = 0);
     ~SFMLRenderer();
 
     // Window management

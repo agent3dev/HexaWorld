@@ -4,19 +4,18 @@
 
 namespace hexaworld {
 
-SFMLRenderer::SFMLRenderer(int width, int height, const std::string& title, bool fullscreen)
+SFMLRenderer::SFMLRenderer(int width, int height, const std::string& title, bool fullscreen, int antialiasing)
     : deltaTime_(0.0f),
       lastKey_(sf::Keyboard::Key::Unknown),
       shouldClose_(false) {
 
     try {
-        if (fullscreen) {
-            window_ = std::make_unique<sf::RenderWindow>(
-                sf::VideoMode::getDesktopMode(), title, sf::Style::Default, sf::State::Fullscreen);
-        } else {
-            window_ = std::make_unique<sf::RenderWindow>(
-                sf::VideoMode(sf::Vector2u(width, height)), title);
-        }
+        sf::ContextSettings settings;
+        settings.antiAliasingLevel = antialiasing;
+
+        sf::VideoMode mode = fullscreen ? sf::VideoMode::getDesktopMode() : sf::VideoMode(sf::Vector2u(width, height));
+        sf::State state = fullscreen ? sf::State::Fullscreen : sf::State::Windowed;
+        window_ = std::make_unique<sf::RenderWindow>(mode, title, state, settings);
 
         if (!window_ || !window_->isOpen()) {
             std::cerr << "ERROR: Failed to create SFML window. Is DISPLAY set?" << std::endl;
