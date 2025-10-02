@@ -205,6 +205,11 @@ int main() {
             // Handle events
             renderer.pollEvent();
 
+            // Fallback ESC check
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Escape)) {
+                break;
+            }
+
             // Check for 'c' key to toggle object visibility
             if (renderer.getLastKey() == sf::Keyboard::Key::C) {
                 showObject = !showObject;
