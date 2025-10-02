@@ -27,13 +27,17 @@ void HexGrid::add_hexagon(int q, int r) {
         static std::random_device rd;
         static std::mt19937 gen(rd());
         std::uniform_real_distribution<> rand_prob(0.0, 1.0);
+        std::uniform_real_distribution<> nutrient_var(-0.2, 0.2);
 
         // Count neighbor types
         std::map<TerrainType, int> neighbor_counts;
         for (int dir = 0; dir < 6; ++dir) {
             auto [nq, nr] = get_neighbor_coords(q, r, dir);
             if (has_hexagon(nq, nr)) {
-                neighbor_counts[terrainTypes[{nq, nr}]]++;
+                auto it = terrainTiles.find({nq, nr});
+                if (it != terrainTiles.end()) {
+                    neighbor_counts[it->second.type]++;
+                }
             }
         }
 
@@ -61,7 +65,16 @@ void HexGrid::add_hexagon(int q, int r) {
             }
         }
 
-        terrainTypes[{q, r}] = type;
+        // Assign nutrients based on type
+        float base_nutrients;
+        switch (type) {
+            case SOIL: base_nutrients = 0.8f; break;
+            case WATER: base_nutrients = 0.5f; break;
+            case ROCK: base_nutrients = 0.2f; break;
+        }
+        float nutrients = std::clamp(base_nutrients + static_cast<float>(nutrient_var(gen)), 0.0f, 1.0f);
+
+        terrainTiles.insert({{q, r}, TerrainTile(q, r, type, nutrients)});
     }
 }
 
@@ -113,8 +126,8 @@ void HexGrid::draw(SFMLRenderer& renderer, uint8_t r, uint8_t g, uint8_t b,
         if (left >= 0 && right <= screen_width && top >= 0 && bottom <= screen_height) {
             // Get terrain type and base colors
             TerrainType type = SOIL;
-            auto it = terrainTypes.find({q, r_coord});
-            if (it != terrainTypes.end()) type = it->second;
+            auto it = terrainTiles.find({q, r_coord});
+            if (it != terrainTiles.end()) type = it->second.type;
             uint8_t base_r, base_g, base_b;
             switch (type) {
                 case SOIL: base_r = 139; base_g = 69; base_b = 19; break; // Brown

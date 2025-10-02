@@ -48,19 +48,20 @@ int main() {
          }
 
          // Remove isolated water tiles
-         for (auto it = hexGrid.terrainTypes.begin(); it != hexGrid.terrainTypes.end(); ) {
+         for (auto it = hexGrid.terrainTiles.begin(); it != hexGrid.terrainTiles.end(); ) {
              auto [q, r] = it->first;
-             if (it->second == hexaworld::WATER) {
+             if (it->second.type == hexaworld::WATER) {
                  bool has_water_neighbor = false;
                  for (int dir = 0; dir < 6; ++dir) {
                      auto [nq, nr] = hexGrid.get_neighbor_coords(q, r, dir);
-                     if (hexGrid.terrainTypes.count({nq, nr}) && hexGrid.terrainTypes[{nq, nr}] == hexaworld::WATER) {
+                     auto nit = hexGrid.terrainTiles.find({nq, nr});
+                     if (nit != hexGrid.terrainTiles.end() && nit->second.type == hexaworld::WATER) {
                          has_water_neighbor = true;
                          break;
                      }
                  }
                  if (!has_water_neighbor) {
-                     it = hexGrid.terrainTypes.erase(it);
+                     it = hexGrid.terrainTiles.erase(it);
                      continue;
                  }
              }

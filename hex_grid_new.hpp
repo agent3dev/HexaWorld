@@ -17,6 +17,14 @@ enum TerrainType {
     ROCK
 };
 
+// Terrain tile class
+struct TerrainTile {
+    int q, r;
+    TerrainType type;
+    float nutrients; // 0.0 to 1.0, affects plant growth likelihood and quality
+    TerrainTile(int q, int r, TerrainType type, float nutrients) : q(q), r(r), type(type), nutrients(nutrients) {}
+};
+
 // ============================================================================
 // HEX GRID CLASS - Manages hexagonal grid with proper neighbor relationships
 // ============================================================================
@@ -25,7 +33,7 @@ class HexGrid {
 public:
     float hex_size;
     std::map<std::pair<int, int>, std::pair<float, float>> hexagons;  // (q,r) -> (x,y)
-    std::map<std::pair<int, int>, TerrainType> terrainTypes;  // (q,r) -> type
+    std::map<std::pair<int, int>, TerrainTile> terrainTiles;  // (q,r) -> tile
     static const std::vector<std::pair<int, int>> directions;
 
     HexGrid(float size) : hex_size(size) {}
@@ -68,13 +76,6 @@ struct HexObject {
         q += dq;
         r += dr;
     }
-};
-
-// Terrain tile class
-struct TerrainTile {
-    int q, r;
-    TerrainType type;
-    TerrainTile(int q, int r, TerrainType type) : q(q), r(r), type(type) {}
 };
 
 // ============================================================================
