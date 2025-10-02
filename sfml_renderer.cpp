@@ -2,8 +2,6 @@
 #include <cmath>
 #include <iostream>
 
-namespace hexaworld {
-
 SFMLRenderer::SFMLRenderer(int width, int height, const std::string& title, bool fullscreen, int antialiasing)
     : deltaTime_(0.0f),
       lastKey_(sf::Keyboard::Key::Unknown),
@@ -286,4 +284,3 @@ sf::RenderWindow* SFMLRenderer::getWindow() const {
     return window_.get();
 }
 
-} // namespace hexaworld

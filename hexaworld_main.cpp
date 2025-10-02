@@ -12,7 +12,6 @@
 #include <string>
 #include <cmath>
 
-namespace hexaworld {
 unsigned int get_seed() {
     if (const char* env_seed = std::getenv("HEXAWORLD_SEED")) {
         try {
@@ -24,15 +23,14 @@ unsigned int get_seed() {
     return RANDOM_SEED;
 }
 std::mt19937 gen(get_seed()); // Fixed seed for repeatable simulation
-}
 
 int main() {
     try {
-        unsigned int seed = hexaworld::get_seed();
+        unsigned int seed = get_seed();
         std::cout << "Using seed: " << seed << std::endl;
 
         // Create renderer in windowed mode with antialiasing
-        hexaworld::SFMLRenderer renderer(1280, 1024, "HexaWorld - Hexagonal Grid", false, 4);
+        SFMLRenderer renderer(1280, 1024, "HexaWorld - Hexagonal Grid", false, 4);
         renderer.setFramerateLimit(60); // Limit FPS to reduce CPU usage
 
         // Center the grid in the window
@@ -40,13 +38,13 @@ int main() {
         float center_y = renderer.getHeight() / 2.0f;
 
         // Create hex grid
-        hexaworld::HexGrid hexGrid(hexaworld::HEX_SIZE);
+        HexGrid hexGrid(HEX_SIZE);
 
         // Add center hexagon
         hexGrid.add_hexagon(0, 0);
 
         // Expand grid to fill screen by adding neighbors that fit fully
-        const float sqrt3 = hexaworld::SQRT3;
+        const float sqrt3 = SQRT3;
         while (true) {
             size_t old_size = hexGrid.hexagons.size();
             hexGrid.create_neighbors();
@@ -55,10 +53,10 @@ int main() {
                 auto [x, y] = it->second;
                 float cx = x + center_x;
                 float cy = y + center_y;
-                float left = cx - hexaworld::HEX_SIZE;
-                float right = cx + hexaworld::HEX_SIZE;
-                float top = cy - hexaworld::HEX_SIZE * sqrt3 / 2.0f;
-                float bottom = cy + hexaworld::HEX_SIZE * sqrt3 / 2.0f;
+                float left = cx - HEX_SIZE;
+                float right = cx + HEX_SIZE;
+                float top = cy - HEX_SIZE * sqrt3 / 2.0f;
+                float bottom = cy + HEX_SIZE * sqrt3 / 2.0f;
                 if (left < 0 || right > renderer.getWidth() || top < 0 || bottom > renderer.getHeight()) {
                     it = hexGrid.hexagons.erase(it);
                 } else {
@@ -84,15 +82,15 @@ int main() {
               }
           }
 
-          // Remove isolated water tiles
-         for (auto it = hexGrid.terrainTiles.begin(); it != hexGrid.terrainTiles.end(); ) {
+        // Remove isolated water tiles
+       for (auto it = hexGrid.terrainTiles.begin(); it != hexGrid.terrainTiles.end(); ) {
              auto [q, r] = it->first;
-             if (it->second.type == hexaworld::WATER) {
+             if (it->second.type == WATER) {
                  bool has_water_neighbor = false;
                  for (int dir = 0; dir < 6; ++dir) {
                      auto [nq, nr] = hexGrid.get_neighbor_coords(q, r, dir);
                      auto nit = hexGrid.terrainTiles.find({nq, nr});
-                     if (nit != hexGrid.terrainTiles.end() && nit->second.type == hexaworld::WATER) {
+                     if (nit != hexGrid.terrainTiles.end() && nit->second.type == WATER) {
                          has_water_neighbor = true;
                          break;
                      }
@@ -103,14 +101,14 @@ int main() {
                  }
              }
              ++it;
-          }
+        }
 
         // Log terrain counts
         int soil_count = 0, water_count = 0, rock_count = 0;
         for (const auto& [coord, tile] : hexGrid.terrainTiles) {
-            if (tile.type == hexaworld::SOIL) soil_count++;
-            else if (tile.type == hexaworld::WATER) water_count++;
-            else if (tile.type == hexaworld::ROCK) rock_count++;
+            if (tile.type == SOIL) soil_count++;
+            else if (tile.type == WATER) water_count++;
+            else if (tile.type == ROCK) rock_count++;
         }
          std::cout << "Terrain: SOIL " << soil_count << ", WATER " << water_count << ", ROCK " << rock_count << std::endl;
 
@@ -118,34 +116,34 @@ int main() {
          std::vector<std::pair<int, int>> soil_coords;
          // Add extra plants if needed
          for (const auto& [coord, tile] : hexGrid.terrainTiles) {
-             if (tile.type == hexaworld::SOIL) {
+             if (tile.type == SOIL) {
                  soil_coords.push_back(coord);
              }
          }
-          std::shuffle(soil_coords.begin(), soil_coords.end(), hexaworld::gen);
+          std::shuffle(soil_coords.begin(), soil_coords.end(), gen);
           size_t num_mature = std::min<size_t>(soil_coords.size() / 2, soil_coords.size());
           size_t num_sprouts = std::min<size_t>(soil_coords.size() / 4, soil_coords.size());
           // Place mature plants first
           for (size_t i = 0; i < num_mature; ++i) {
               auto [q, r] = soil_coords[i];
-              hexGrid.plants.insert({{q, r}, hexaworld::Plant(q, r, hexaworld::PLANT, hexGrid.terrainTiles.at({q, r}).nutrients)});
+              hexGrid.plants.insert({{q, r}, Plant(q, r, PLANT, hexGrid.terrainTiles.at({q, r}).nutrients)});
           }
           // Then sprouts
           for (size_t i = num_mature; i < num_mature + num_sprouts; ++i) {
               auto [q, r] = soil_coords[i];
-              hexGrid.plants.insert({{q, r}, hexaworld::Plant(q, r, hexaworld::SPROUT, hexGrid.terrainTiles.at({q, r}).nutrients)});
+              hexGrid.plants.insert({{q, r}, Plant(q, r, SPROUT, hexGrid.terrainTiles.at({q, r}).nutrients)});
           }
            // Then seeds
            for (size_t i = num_mature + num_sprouts; i < soil_coords.size(); ++i) {
                auto [q, r] = soil_coords[i];
-               hexGrid.plants.insert({{q, r}, hexaworld::Plant(q, r, hexaworld::SEED, hexGrid.terrainTiles.at({q, r}).nutrients)});
+               hexGrid.plants.insert({{q, r}, Plant(q, r, SEED, hexGrid.terrainTiles.at({q, r}).nutrients)});
            }
 
 
 
 
           // Create a movable object
-        hexaworld::HexObject obj(0, 0);
+        HexObject obj(0, 0);
         auto last_move = std::chrono::steady_clock::now();
         bool showObject = false;
 
@@ -157,6 +155,7 @@ int main() {
         std::vector<int> hare_history;
         std::vector<int> plant_history;
         std::vector<int> fox_history;
+        std::vector<int> wolf_history;
         float graph_timer = 0.0f;
         const float GRAPH_UPDATE_INTERVAL = 1.0f; // Update every second
         const size_t MAX_HISTORY = 1000;
@@ -166,12 +165,13 @@ int main() {
         const float LOG_INTERVAL = 10.0f; // Log every 10 seconds
 
         // Create hares on plant tiles
-        std::vector<hexaworld::Hare> hares;
+        std::vector<Hare> hares;
+        std::vector<Wolf> wolves;
         std::vector<std::pair<int, int>> plant_coords;
         for (const auto& [coord, plant] : hexGrid.plants) {
             plant_coords.push_back(coord);
         }
-        std::shuffle(plant_coords.begin(), plant_coords.end(), hexaworld::gen);
+        std::shuffle(plant_coords.begin(), plant_coords.end(), gen);
         size_t grid_size = hexGrid.hexagons.size();
         size_t num_hares = std::max<size_t>(10, grid_size / 500);
         num_hares = std::min(num_hares, plant_coords.size());
@@ -184,23 +184,24 @@ int main() {
             std::uniform_real_distribution<float> weight_dist(0.5f, 1.5f);
             std::uniform_real_distribution<float> fear_dist(0.0f, 1.0f);
             std::uniform_real_distribution<float> efficiency_dist(0.5f, 1.5f);
-            hares.back().genome.reproduction_threshold = thresh_dist(hexaworld::gen);
-            hares.back().genome.movement_aggression = aggression_dist(hexaworld::gen);
-            hares.back().genome.weight = weight_dist(hexaworld::gen);
-            hares.back().genome.fear = fear_dist(hexaworld::gen);
-            hares.back().genome.movement_efficiency = efficiency_dist(hexaworld::gen);
+            hares.back().genome.reproduction_threshold = thresh_dist(gen);
+            hares.back().genome.movement_aggression = aggression_dist(gen);
+            hares.back().genome.weight = weight_dist(gen);
+            hares.back().genome.weight = weight_dist(gen);
+            hares.back().genome.fear = fear_dist(gen);
+            hares.back().genome.movement_efficiency = efficiency_dist(gen);
             hares.back().update_speed();
         }
 
         // Create foxes on soil tiles
-        std::vector<hexaworld::Fox> foxes;
+        std::vector<Fox> foxes;
         std::vector<std::pair<int, int>> fox_soil_coords;
         for (const auto& [coord, tile] : hexGrid.terrainTiles) {
-            if (tile.type == hexaworld::SOIL) {
+            if (tile.type == SOIL) {
                 fox_soil_coords.push_back(coord);
             }
         }
-        std::shuffle(fox_soil_coords.begin(), fox_soil_coords.end(), hexaworld::gen);
+        std::shuffle(fox_soil_coords.begin(), fox_soil_coords.end(), gen);
         size_t num_foxes = std::max<size_t>(5, grid_size / 1000);
         num_foxes = std::min(num_foxes, fox_soil_coords.size());
         for (size_t i = 0; i < num_foxes; ++i) {
@@ -211,14 +212,37 @@ int main() {
             std::uniform_real_distribution<float> aggression_dist(0.0f, 1.0f);
             std::uniform_real_distribution<float> weight_dist(0.5f, 1.5f);
             std::uniform_real_distribution<float> efficiency_dist(0.5f, 1.5f);
-            foxes.back().genome.reproduction_threshold = thresh_dist(hexaworld::gen);
-            foxes.back().genome.hunting_aggression = aggression_dist(hexaworld::gen);
-            foxes.back().genome.weight = weight_dist(hexaworld::gen);
-            foxes.back().genome.movement_efficiency = efficiency_dist(hexaworld::gen);
-            foxes.back().update_speed();
+            foxes.back().genome.reproduction_threshold = thresh_dist(gen);
+            foxes.back().genome.hunting_aggression = aggression_dist(gen);
+            foxes.back().genome.weight = weight_dist(gen);
+            foxes.back().genome.movement_efficiency = efficiency_dist(gen);
+             foxes.back().update_speed();
+         }
+
+        // Create wolves on soil tiles
+        std::vector<std::pair<int, int>> wolf_soil_coords;
+        for (const auto& [coord, tile] : hexGrid.terrainTiles) {
+            if (tile.type == SOIL) {
+                wolf_soil_coords.push_back(coord);
+            }
         }
-
-
+        std::shuffle(wolf_soil_coords.begin(), wolf_soil_coords.end(), gen);
+        size_t num_wolves = std::max<size_t>(2, grid_size / 2000);
+        num_wolves = std::min(num_wolves, wolf_soil_coords.size());
+        for (size_t i = 0; i < num_wolves; ++i) {
+            auto [q, r] = wolf_soil_coords[i];
+            wolves.emplace_back(q, r);
+            // Randomize genome for initial population
+            std::uniform_real_distribution<float> thresh_dist(5.0f, 7.0f);
+            std::uniform_real_distribution<float> aggression_dist(0.0f, 1.0f);
+            std::uniform_real_distribution<float> weight_dist(0.5f, 1.5f);
+            std::uniform_real_distribution<float> efficiency_dist(0.5f, 1.5f);
+            wolves.back().genome.reproduction_threshold = thresh_dist(gen);
+            wolves.back().genome.hunting_aggression = aggression_dist(gen);
+            wolves.back().genome.weight = weight_dist(gen);
+            wolves.back().genome.movement_efficiency = efficiency_dist(gen);
+            wolves.back().update_speed();
+        }
 
         // Initial brightness center on hares
         float brightness_center_q = 0, brightness_center_r = 0;
@@ -281,26 +305,26 @@ int main() {
                 plant.growth_time += dt;
                 float threshold = 20.0f / (plant.nutrients + 0.1f); // Slower growth
                 if (plant.growth_time >= threshold) {
-                    if (plant.stage < hexaworld::PLANT) {
-                        plant.stage = static_cast<hexaworld::PlantStage>(plant.stage + 1);
+                    if (plant.stage < PLANT) {
+                        plant.stage = static_cast<PlantStage>(plant.stage + 1);
                     }
                     plant.growth_time = 0.0f;
                 }
 
                 // Mature plants drop seeds randomly
-                if (plant.stage == hexaworld::PLANT) {
+                if (plant.stage == PLANT) {
                     plant.drop_time += dt;
                     if (plant.drop_time >= 10.0f) { // Every 10 seconds
-                        if ((hexaworld::gen() % 100) < 20) { // 20% chance
+                        if ((gen() % 100) < 20) { // 20% chance
                             // Drop seeds in soil neighbors without plants
                             for (int dir = 0; dir < 6; ++dir) {
                                 auto [nq, nr] = hexGrid.get_neighbor_coords(plant.q, plant.r, dir);
                                 if (hexGrid.has_hexagon(nq, nr) &&
-                                    hexGrid.get_terrain_type(nq, nr) == hexaworld::SOIL &&
+                                    hexGrid.get_terrain_type(nq, nr) == SOIL &&
                                     !hexGrid.get_plant(nq, nr)) {
                                     auto tit = hexGrid.terrainTiles.find({nq, nr});
                                     float nutrients = (tit != hexGrid.terrainTiles.end()) ? tit->second.nutrients : 0.5f;
-                                    hexGrid.plants.insert({{nq, nr}, hexaworld::Plant(nq, nr, hexaworld::SEED, nutrients)});
+                                    hexGrid.plants.insert({{nq, nr}, Plant(nq, nr, SEED, nutrients)});
                                 }
                             }
                         }
@@ -311,20 +335,25 @@ int main() {
 
             // Update hares
             for (auto& hare : hares) {
-                hare.update(hexGrid, foxes, dt, hexaworld::gen);
+                hare.update(hexGrid, foxes, dt, gen);
             }
 
             // Update foxes
             for (auto& fox : foxes) {
-                fox.update(hexGrid, hares, foxes, dt, hexaworld::gen);
+                fox.update(hexGrid, hares, foxes, dt, gen);
+            }
+
+            // Update wolves
+            for (auto& wolf : wolves) {
+                wolf.update(hexGrid, hares, foxes, dt, gen);
             }
 
             // Handle hare birth
             for (auto& hare : hares) {
                 if (hare.ready_to_give_birth) {
                     // Create offspring at same position
-                    hares.push_back(hexaworld::Hare(hare.q, hare.r));
-                    hares.back().genome = hare.genome.mutate(hexaworld::gen);
+                    hares.push_back(Hare(hare.q, hare.r));
+                    hares.back().genome = hare.genome.mutate(gen);
                     hares.back().energy = 0.5f; // Lower starting energy for evolutionary pressure
                     hare.ready_to_give_birth = false;
                     if (enableHareLogging) {
@@ -337,11 +366,23 @@ int main() {
             for (auto& fox : foxes) {
                 if (fox.ready_to_give_birth) {
                     // Create offspring at same position
-                    foxes.push_back(hexaworld::Fox(fox.q, fox.r));
-                    foxes.back().genome = fox.genome.mutate(hexaworld::gen);
+                    foxes.push_back(Fox(fox.q, fox.r));
+                    foxes.back().genome = fox.genome.mutate(gen);
                     foxes.back().energy = 3.0f; // Starting energy for offspring
                     fox.ready_to_give_birth = false;
                     std::cout << "Fox gave birth at (" << fox.q << ", " << fox.r << ")" << std::endl;
+                }
+            }
+
+            // Handle wolf birth
+            for (auto& wolf : wolves) {
+                if (wolf.ready_to_give_birth) {
+                    // Create offspring at same position
+                    wolves.push_back(Wolf(wolf.q, wolf.r));
+                    wolves.back().genome = wolf.genome.mutate(gen);
+                    wolves.back().energy = 4.0f; // Starting energy for offspring
+                    wolf.ready_to_give_birth = false;
+                    std::cout << "Wolf gave birth at (" << wolf.q << ", " << wolf.r << ")" << std::endl;
                 }
             }
 
@@ -351,10 +392,12 @@ int main() {
                 hare_history.push_back(hares.size());
                 plant_history.push_back(hexGrid.plants.size());
                 fox_history.push_back(foxes.size());
+                wolf_history.push_back(wolves.size());
                 if (hare_history.size() > MAX_HISTORY) {
                     hare_history.erase(hare_history.begin());
                     plant_history.erase(plant_history.begin());
                     fox_history.erase(fox_history.begin());
+                    wolf_history.erase(wolf_history.begin());
                 }
                 graph_timer = 0.0f;
             }
@@ -362,19 +405,24 @@ int main() {
             // Console logging
             log_timer += dt;
             if (log_timer >= LOG_INTERVAL) {
-                std::cout << "Populations - Hares: " << hares.size() << ", Plants: " << hexGrid.plants.size() << ", Foxes: " << foxes.size() << std::endl;
+                std::cout << "Populations - Hares: " << hares.size() << ", Plants: " << hexGrid.plants.size() << ", Foxes: " << foxes.size() << ", Wolves: " << wolves.size() << std::endl;
                 log_timer = 0.0f;
             }
 
             // Remove dead hares
-            hares.erase(std::remove_if(hares.begin(), hares.end(), [](const hexaworld::Hare& h) {
+            hares.erase(std::remove_if(hares.begin(), hares.end(), [](const Hare& h) {
                 return h.is_dead;
             }), hares.end());
 
             // Remove dead foxes
-            foxes.erase(std::remove_if(foxes.begin(), foxes.end(), [](const hexaworld::Fox& f) {
+            foxes.erase(std::remove_if(foxes.begin(), foxes.end(), [](const Fox& f) {
                 return f.is_dead;
             }), foxes.end());
+
+            // Remove dead wolves
+            wolves.erase(std::remove_if(wolves.begin(), wolves.end(), [](const Wolf& w) {
+                return w.is_dead;
+            }), wolves.end());
 
 
 
@@ -383,13 +431,13 @@ int main() {
                 auto now = std::chrono::steady_clock::now();
                 if (now - last_move > std::chrono::seconds(1)) {
                     std::uniform_int_distribution<> dis(0, 5);
-                    int dir = dis(hexaworld::gen);
+                    int dir = dis(gen);
                     obj.move(dir);
                     last_move = now;
                 }
             }
 
-            // Calculate brightness center based on alive hares
+            // Calculate brightness center based on alive animals
             float brightness_center_q = 0, brightness_center_r = 0;
             int alive_count = 0;
             for (const auto& hare : hares) {
@@ -399,8 +447,22 @@ int main() {
                     alive_count++;
                 }
             }
-            bool has_alive_hares = alive_count > 0;
-            if (has_alive_hares) {
+            for (const auto& fox : foxes) {
+                if (!fox.is_dead) {
+                    brightness_center_q += fox.q;
+                    brightness_center_r += fox.r;
+                    alive_count++;
+                }
+            }
+            for (const auto& wolf : wolves) {
+                if (!wolf.is_dead) {
+                    brightness_center_q += wolf.q;
+                    brightness_center_r += wolf.r;
+                    alive_count++;
+                }
+            }
+            bool has_alive_animals = alive_count > 0;
+            if (has_alive_animals) {
                 brightness_center_q /= alive_count;
                 brightness_center_r /= alive_count;
             }
@@ -415,7 +477,7 @@ int main() {
                           center_x, center_y,
                           renderer.getWidth(), renderer.getHeight(),
                           brightness_center_q, brightness_center_r,
-                          has_alive_hares);
+                          has_alive_animals);
 
             // Draw plants with pizza slice style
             for (const auto& [coord, plant] : hexGrid.plants) {
@@ -424,11 +486,11 @@ int main() {
                 float plant_y = py + center_y;
                 uint8_t r, g, b;
                 switch (plant.stage) {
-                    case hexaworld::SEED:
+                    case SEED:
                         r = 139; g = 69; b = 19; break; // Brown seed
-                    case hexaworld::SPROUT:
+                    case SPROUT:
                         r = 34; g = 139; b = 34; break; // Forest green sprout
-                    case hexaworld::PLANT:
+                    case PLANT:
                         r = 0; g = 100; b = 0; break; // Dark green plant
                 }
                 // Draw drop shadow
@@ -492,39 +554,76 @@ int main() {
                   renderer.drawCircle(fox_x + 1.5f, fox_y + 1, 0.8f, 255, 255, 255, 255); // Right eye
              }
 
+              // Draw wolves
+              for (const auto& wolf : wolves) {
+                  float wolf_x = wolf.current_pos.x + center_x;
+                  float wolf_y = wolf.current_pos.y + center_y;
+                  sf::Color color = wolf.getColor();
+                  // Draw wolf as larger triangle head with ears
+                  std::vector<std::pair<float, float>> head_points = {
+                      {wolf_x, wolf_y + 8}, // Bottom
+                      {wolf_x - 6, wolf_y - 4}, // Top left
+                      {wolf_x + 6, wolf_y - 4}  // Top right
+                  };
+                  renderer.drawConvexShape(head_points, color.r, color.g, color.b, 255);
+                  // Ears
+                  std::vector<std::pair<float, float>> left_ear = {
+                      {wolf_x - 6, wolf_y - 4}, // Base left
+                      {wolf_x - 4, wolf_y - 4}, // Base right
+                      {wolf_x - 5, wolf_y - 8}  // Tip
+                  };
+                  renderer.drawConvexShape(left_ear, color.r, color.g, color.b, 255);
+                  std::vector<std::pair<float, float>> right_ear = {
+                      {wolf_x + 4, wolf_y - 4}, // Base left
+                      {wolf_x + 6, wolf_y - 4}, // Base right
+                      {wolf_x + 5, wolf_y - 8}  // Tip
+                  };
+                  renderer.drawConvexShape(right_ear, color.r, color.g, color.b, 255);
+                  // Eyes
+                  renderer.drawCircle(wolf_x - 2, wolf_y + 1.5f, 1.0f, 255, 255, 255, 255); // Left eye
+                  renderer.drawCircle(wolf_x + 2, wolf_y + 1.5f, 1.0f, 255, 255, 255, 255); // Right eye
+              }
+
               // Draw population graph (bottom 4% of screen)
               int graph_height = renderer.getHeight() / 25;
              int graph_y = renderer.getHeight() - graph_height;
              renderer.drawRectangle(0, graph_y, renderer.getWidth(), graph_height, 0, 0, 0, 150); // Semi-transparent background
-             if (!hare_history.empty()) {
-                 int max_count = 0;
-                 for (int h : hare_history) max_count = std::max(max_count, h);
-                 for (int p : plant_history) max_count = std::max(max_count, p);
-                 for (int f : fox_history) max_count = std::max(max_count, f);
-                 if (max_count == 0) max_count = 1;
-                  // Compute log scales for hares and foxes
-                  float max_log_hf = std::log(max_count + 1.0f);
-                  for (size_t i = 1; i < hare_history.size(); ++i) {
-                      float x1 = (i - 1) * static_cast<float>(renderer.getWidth()) / (hare_history.size() - 1);
-                      float x2 = i * static_cast<float>(renderer.getWidth()) / (hare_history.size() - 1);
-                      // Hare line (gray) - logarithmic
-                      float log_h1 = std::log(hare_history[i - 1] + 1.0f);
-                      float log_h2 = std::log(hare_history[i] + 1.0f);
-                      float y1_h = graph_y + graph_height - (log_h1 * static_cast<float>(graph_height) / max_log_hf);
-                      float y2_h = graph_y + graph_height - (log_h2 * static_cast<float>(graph_height) / max_log_hf);
-                      renderer.drawLine(x1, y1_h, x2, y2_h, 128, 128, 128, 255, 2.0f);
-                      // Plant line (mature plant color: dark green) - linear
-                      float y1_p = graph_y + graph_height - (plant_history[i - 1] * static_cast<float>(graph_height) / max_count);
-                      float y2_p = graph_y + graph_height - (plant_history[i] * static_cast<float>(graph_height) / max_count);
-                      renderer.drawLine(x1, y1_p, x2, y2_p, 0, 100, 0, 255, 2.0f);
-                      // Fox line (orange) - logarithmic
-                      float log_f1 = std::log(fox_history[i - 1] + 1.0f);
-                      float log_f2 = std::log(fox_history[i] + 1.0f);
-                      float y1_f = graph_y + graph_height - (log_f1 * static_cast<float>(graph_height) / max_log_hf);
-                      float y2_f = graph_y + graph_height - (log_f2 * static_cast<float>(graph_height) / max_log_hf);
-                      renderer.drawLine(x1, y1_f, x2, y2_f, 255, 140, 0, 255, 2.0f);
-                  }
-             }
+              if (!hare_history.empty()) {
+                  int max_count = 0;
+                  for (int h : hare_history) max_count = std::max(max_count, h);
+                  for (int p : plant_history) max_count = std::max(max_count, p);
+                  for (int f : fox_history) max_count = std::max(max_count, f);
+                  for (int w : wolf_history) max_count = std::max(max_count, w);
+                  if (max_count == 0) max_count = 1;
+                   // Compute log scales for hares, foxes, and wolves
+                   float max_log_hfw = std::log(max_count + 1.0f);
+                   for (size_t i = 1; i < hare_history.size(); ++i) {
+                       float x1 = (i - 1) * static_cast<float>(renderer.getWidth()) / (hare_history.size() - 1);
+                       float x2 = i * static_cast<float>(renderer.getWidth()) / (hare_history.size() - 1);
+                       // Hare line (gray) - logarithmic
+                       float log_h1 = std::log(hare_history[i - 1] + 1.0f);
+                       float log_h2 = std::log(hare_history[i] + 1.0f);
+                       float y1_h = graph_y + graph_height - (log_h1 * static_cast<float>(graph_height) / max_log_hfw);
+                       float y2_h = graph_y + graph_height - (log_h2 * static_cast<float>(graph_height) / max_log_hfw);
+                       renderer.drawLine(x1, y1_h, x2, y2_h, 128, 128, 128, 255, 2.0f);
+                       // Plant line (mature plant color: dark green) - linear
+                       float y1_p = graph_y + graph_height - (plant_history[i - 1] * static_cast<float>(graph_height) / max_count);
+                       float y2_p = graph_y + graph_height - (plant_history[i] * static_cast<float>(graph_height) / max_count);
+                       renderer.drawLine(x1, y1_p, x2, y2_p, 0, 100, 0, 255, 2.0f);
+                       // Fox line (orange) - logarithmic
+                       float log_f1 = std::log(fox_history[i - 1] + 1.0f);
+                       float log_f2 = std::log(fox_history[i] + 1.0f);
+                       float y1_f = graph_y + graph_height - (log_f1 * static_cast<float>(graph_height) / max_log_hfw);
+                       float y2_f = graph_y + graph_height - (log_f2 * static_cast<float>(graph_height) / max_log_hfw);
+                       renderer.drawLine(x1, y1_f, x2, y2_f, 255, 140, 0, 255, 2.0f);
+                       // Wolf line (black) - logarithmic
+                       float log_w1 = std::log(wolf_history[i - 1] + 1.0f);
+                       float log_w2 = std::log(wolf_history[i] + 1.0f);
+                       float y1_w = graph_y + graph_height - (log_w1 * static_cast<float>(graph_height) / max_log_hfw);
+                       float y2_w = graph_y + graph_height - (log_w2 * static_cast<float>(graph_height) / max_log_hfw);
+                       renderer.drawLine(x1, y1_w, x2, y2_w, 0, 0, 0, 255, 2.0f);
+                   }
+              }
 
              // Display average genome stats and current population
              float sum_threshold = 0.0f;
@@ -539,11 +638,12 @@ int main() {
                      genome_count++;
                  }
              }
-              int plant_count = hexGrid.plants.size();
-              int hare_count = hares.size();
-              int fox_count = foxes.size();
-              std::string stats_text = "Plants: " + std::to_string(plant_count) + " | Hares: " + std::to_string(hare_count) + " | Foxes: " + std::to_string(fox_count);
-              renderer.drawText(stats_text, 10, graph_y + 10, 255, 255, 255, 16);
+               int plant_count = hexGrid.plants.size();
+               int hare_count = hares.size();
+               int fox_count = foxes.size();
+               int wolf_count = wolves.size();
+               std::string stats_text = "Plants: " + std::to_string(plant_count) + " | Hares: " + std::to_string(hare_count) + " | Foxes: " + std::to_string(fox_count) + " | Wolves: " + std::to_string(wolf_count);
+               renderer.drawText(stats_text, 10, graph_y + 10, 255, 255, 255, 16);
 
             // Draw object
             if (showObject) {
@@ -552,14 +652,14 @@ int main() {
                 float obj_y = oy + center_y;
                 for (int i = 3; i >= 1; --i) {
                     uint8_t alpha = 255 / (1 << i); // 128, 64, 32
-                    renderer.drawCircle(obj_x, obj_y, hexaworld::HEX_SIZE + i * 3.0f, 255, 0, 0, alpha);
+                    renderer.drawCircle(obj_x, obj_y, HEX_SIZE + i * 3.0f, 255, 0, 0, alpha);
                 }
 
                 // Draw object
-                renderer.drawHexagon(obj_x, obj_y, hexaworld::HEX_SIZE,
-                                     255, 0, 0,    // Red fill
-                                     255, 255, 255, // White outline
-                                     true);
+                renderer.drawHexagon(obj_x, obj_y, HEX_SIZE,
+                                      255, 0, 0,    // Red fill
+                                      255, 255, 255, // White outline
+                                      true);
             }
 
 

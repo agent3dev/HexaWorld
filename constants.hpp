@@ -3,8 +3,6 @@
 #include <random>
 #include <SFML/Graphics.hpp>
 
-namespace hexaworld {
-
 const float HEX_SIZE = 12.0f;
 const float SQRT3 = 1.73205080757f;
 
@@ -24,4 +22,4 @@ const unsigned int RANDOM_SEED = 444;
 // Random generator for repeatable simulation
 extern std::mt19937 gen;
 
-} // namespace hexaworld
+

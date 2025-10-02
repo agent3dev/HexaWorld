@@ -5,11 +5,6 @@
 #include <algorithm>
 #include <functional>
 
-namespace hexaworld {
-
-// Simple Genetic Algorithm for hare behaviors
-// For now, evolving reproduction threshold
-
 struct HareGenome {
     float reproduction_threshold = 1.5f;
     float movement_aggression = 0.5f; // 0 = random movement, 1 = always seek plants
@@ -68,19 +63,19 @@ struct FoxGenome {
     float movement_efficiency = 1.0f; // 0.5 = inefficient/high cost, 1.5 = efficient/low cost
 
     FoxGenome() = default;
-    FoxGenome(float thresh, float aggression, float w) : reproduction_threshold(thresh), hunting_aggression(aggression), weight(w) {}
+    FoxGenome(float thresh, float aggression, float w, float eff) : reproduction_threshold(thresh), hunting_aggression(aggression), weight(w), movement_efficiency(eff) {}
 
     FoxGenome mutate(std::mt19937& gen) const {
         std::normal_distribution<float> dist(0.0f, 0.1f); // Small mutations
         FoxGenome child = *this;
         child.reproduction_threshold += dist(gen);
-        child.reproduction_threshold = std::clamp(child.reproduction_threshold, 2.0f, 4.0f);
+        child.reproduction_threshold = std::min(std::max(child.reproduction_threshold, 2.0f), 6.0f);
         child.hunting_aggression += dist(gen);
-        child.hunting_aggression = std::clamp(child.hunting_aggression, 0.0f, 1.0f);
+        child.hunting_aggression = std::min(std::max(child.hunting_aggression, 0.0f), 1.0f);
         child.weight += dist(gen);
-        child.weight = std::clamp(child.weight, 0.5f, 1.5f);
+        child.weight = std::min(std::max(child.weight, 0.5f), 1.5f);
         child.movement_efficiency += dist(gen);
-        child.movement_efficiency = std::clamp(child.movement_efficiency, 0.5f, 1.5f);
+        child.movement_efficiency = std::min(std::max(child.movement_efficiency, 0.5f), 1.5f);
         return child;
     }
 
@@ -98,72 +93,39 @@ struct FoxGenome {
     }
 };
 
-class GeneticAlgorithm {
-public:
-    std::vector<HareGenome> population;
-    std::mt19937& gen;
-    std::function<float(const HareGenome&)> fitness_func;
+struct WolfGenome {
+    float reproduction_threshold = 6.0f;
+    float hunting_aggression = 0.5f; // 0 = passive, 1 = aggressive
+    float weight = 1.0f; // 0.5 = light/fast, 1.5 = heavy/slow
+    float movement_efficiency = 1.0f; // 0.5 = inefficient/high cost, 1.5 = efficient/low cost
 
-    GeneticAlgorithm(std::mt19937& rng, std::function<float(const HareGenome&)> fit_func)
-        : gen(rng), fitness_func(fit_func) {}
+    WolfGenome() = default;
+    WolfGenome(float thresh, float aggression, float w, float eff) : reproduction_threshold(thresh), hunting_aggression(aggression), weight(w), movement_efficiency(eff) {}
 
-    void initialize(int pop_size) {
-        population.resize(pop_size);
-        std::uniform_real_distribution<float> thresh_dist(1.0f, 2.0f);
-        std::uniform_real_distribution<float> aggression_dist(0.0f, 1.0f);
-        std::uniform_real_distribution<float> weight_dist(0.5f, 1.5f);
-        std::uniform_real_distribution<float> fear_dist(0.0f, 1.0f);
-        for (auto& genome : population) {
-            genome.reproduction_threshold = thresh_dist(gen);
-            genome.movement_aggression = aggression_dist(gen);
-            genome.weight = weight_dist(gen);
-            genome.fear = fear_dist(gen);
-        }
+    WolfGenome mutate(std::mt19937& gen) const {
+        std::normal_distribution<float> dist(0.0f, 0.1f); // Small mutations
+        WolfGenome child = *this;
+        child.reproduction_threshold += dist(gen);
+        child.reproduction_threshold = std::clamp(child.reproduction_threshold, 5.0f, 7.0f);
+        child.hunting_aggression += dist(gen);
+        child.hunting_aggression = std::clamp(child.hunting_aggression, 0.0f, 1.0f);
+        child.weight += dist(gen);
+        child.weight = std::clamp(child.weight, 0.5f, 1.5f);
+        child.movement_efficiency += dist(gen);
+        child.movement_efficiency = std::clamp(child.movement_efficiency, 0.5f, 1.5f);
+        return child;
     }
 
-    void evolve(int generations) {
-        for (int gen = 0; gen < generations; ++gen) {
-            // Evaluate fitness
-            std::vector<std::pair<float, HareGenome>> evaluated;
-            for (const auto& genome : population) {
-                evaluated.emplace_back(fitness_func(genome), genome);
-            }
-            // Sort by fitness descending
-            std::sort(evaluated.begin(), evaluated.end(), std::greater<>());
-            // Select top half
-            population.clear();
-            for (size_t i = 0; i < evaluated.size() / 2; ++i) {
-                population.push_back(evaluated[i].second);
-            }
-            // Crossover and mutate to fill population
-            std::uniform_int_distribution<size_t> dist(0, population.size() - 1);
-            while (population.size() < evaluated.size()) {
-                // Simple crossover: average
-                size_t p1 = dist(this->gen);
-                size_t p2 = dist(this->gen);
-                HareGenome child;
-                child.reproduction_threshold = (population[p1].reproduction_threshold + population[p2].reproduction_threshold) / 2.0f;
-                child.movement_aggression = (population[p1].movement_aggression + population[p2].movement_aggression) / 2.0f;
-                child.weight = (population[p1].weight + population[p2].weight) / 2.0f;
-                child.fear = (population[p1].fear + population[p2].fear) / 2.0f;
-                child = child.mutate(this->gen);
-                population.push_back(child);
-            }
+    bool operator<(const WolfGenome& other) const {
+        if (reproduction_threshold != other.reproduction_threshold) {
+            return reproduction_threshold < other.reproduction_threshold;
         }
-    }
-
-    HareGenome get_best() const {
-        HareGenome best;
-        float best_fit = -1;
-        for (const auto& genome : population) {
-            float fit = fitness_func(genome);
-            if (fit > best_fit) {
-                best_fit = fit;
-                best = genome;
-            }
+        if (hunting_aggression != other.hunting_aggression) {
+            return hunting_aggression < other.hunting_aggression;
         }
-        return best;
+        if (weight != other.weight) {
+            return weight < other.weight;
+        }
+        return movement_efficiency < other.movement_efficiency;
     }
 };
-
-} // namespace hexaworld

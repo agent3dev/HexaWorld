@@ -5,14 +5,16 @@ A real-time C++ simulation of an evolutionary ecosystem on a hexagonal grid, fea
 ## Features
 
 - **Hexagonal Grid Ecosystem**: Dynamic terrain with soil, rock, and water tiles
-- **Evolutionary Simulation**: Genetic algorithms for hare and fox traits (speed, efficiency, reproduction, camouflage)
+- **Evolutionary Simulation**: Genetic algorithms for hare, fox, and wolf traits (speed, efficiency, reproduction, aggression)
 - **Plant Growth System**: Seeds sprout into plants that drop new seeds
-- **Predator-Prey Dynamics**: Foxes hunt hares with visibility-based detection
+- **Predator-Prey Dynamics**: Multi-level food chain - plants → hares → foxes → wolves
 - **Genetic Traits**:
   - Hare: Reproduction threshold, movement aggression, weight, fear, movement efficiency, burrowing ability
   - Fox: Reproduction threshold, hunting aggression, weight, movement efficiency
+  - Wolf: Reproduction threshold, hunting aggression, weight, movement efficiency
 - **Interactive Visualization**: Real-time population graphs, smooth animations, antialiasing
-- **Terrain Interactions**: Hares burrow to hide, access rocks/water based on traits
+- **Terrain Interactions**: Hares burrow to hide from foxes, fearless hares access water, all can traverse rocks
+- **Apex Predators**: Wolves hunt hares and foxes with superior vision and speed
 
 ## Mathematical Background
 
@@ -79,7 +81,7 @@ The hexagonal grid starts with a center hexagon and expands outward:
 ### Classes
 
 - **HexGrid**: Manages terrain, plants, and hexagonal grid
-- **Hare/Fox**: Animal classes with genetic traits and behaviors
+- **Hare/Fox/Wolf**: Animal classes with genetic traits and behaviors
 - **SFMLRenderer**: Handles window, drawing, and input
 - **GeneticAlgorithm**: Evolution through mutation and selection
 
@@ -92,8 +94,8 @@ The hexagonal grid starts with a center hexagon and expands outward:
 
 ## Future Enhancements
 
-- Additional species (apex predators, omnivores)
+- Additional species (omnivores, scavengers)
 - Dynamic environmental changes (seasons, disasters)
-- Advanced AI behaviors (memory, cooperation)
+- Advanced AI behaviors (memory, cooperation, pack hunting)
 - Multiplayer or networked simulations
 - Data export for analysis

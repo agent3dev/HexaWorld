@@ -6,8 +6,6 @@
 #include <string>
 #include <memory>
 
-namespace hexaworld {
-
 class SFMLRenderer {
 public:
     SFMLRenderer(int width, int height, const std::string& title, bool fullscreen, int antialiasing = 0);
@@ -79,4 +77,3 @@ private:
     void loadFont();
 };
 
-} // namespace hexaworld

@@ -13,7 +13,7 @@
 #include <chrono>
 #include <iostream>
 
-namespace hexaworld {
+
 
 // ============================================================================
 // HEX GRID CLASS IMPLEMENTATION
@@ -21,7 +21,7 @@ namespace hexaworld {
 
 std::pair<float, float> HexGrid::axial_to_pixel(int q, int r) const {
     // Convert axial coordinates to pixel position for flat-top hexagons
-    const float sqrt3 = hexaworld::SQRT3;
+    const float sqrt3 = SQRT3;
     float x = hex_size * (3.0f/2.0f * q);
     float y = hex_size * (sqrt3/2.0f * q + sqrt3 * r);
     return {x, y};
@@ -52,7 +52,7 @@ void HexGrid::add_hexagon(int q, int r) {
         if (neighbor_counts.empty()) {
             // No neighbors, random, allow some rocks
             std::uniform_int_distribution<> dis(0, 9);
-            int rand_val = dis(hexaworld::gen);
+            int rand_val = dis(gen);
             if (rand_val < 2) { // 20% rock
                 type = ROCK;
             } else if (rand_val < 6) { // 40% soil
@@ -62,10 +62,10 @@ void HexGrid::add_hexagon(int q, int r) {
             }
         } else {
                 // 30% chance to be random anyway
-                if (rand_prob(hexaworld::gen) < 0.3) {
+                if (rand_prob(gen) < 0.3) {
                     // Random with some rocks
                     std::uniform_int_distribution<> dis(0, 9);
-                    int rand_val = dis(hexaworld::gen);
+                    int rand_val = dis(gen);
                     if (rand_val < 2) { // 20% rock
                         type = ROCK;
                     } else if (rand_val < 6) { // 40% soil
@@ -94,12 +94,12 @@ void HexGrid::add_hexagon(int q, int r) {
             case WATER: base_nutrients = 0.5f; break;
             case ROCK: base_nutrients = 0.2f; break;
         }
-        float nutrients = std::clamp(base_nutrients + static_cast<float>(nutrient_var(hexaworld::gen)), 0.0f, 1.0f);
+        float nutrients = std::clamp(base_nutrients + static_cast<float>(nutrient_var(gen)), 0.0f, 1.0f);
 
         terrainTiles.insert({{q, r}, TerrainTile(q, r, type, nutrients)});
 
         // Spawn plant on soil with chance
-        if (type == SOIL && (hexaworld::gen() % 100) < 10) { // 10% chance
+        if (type == SOIL && (gen() % 100) < 10) { // 10% chance
             plants.insert({{q, r}, Plant(q, r, SEED, nutrients)});
         }
     }
@@ -142,7 +142,7 @@ void HexGrid::draw(SFMLRenderer& renderer, uint8_t r, uint8_t g, uint8_t b,
                    float offset_x, float offset_y, int screen_width, int screen_height,
                    float brightness_center_q, float brightness_center_r,
                    bool has_alive_hares) const {
-    const float sqrt3 = hexaworld::SQRT3;
+    const float sqrt3 = SQRT3;
     for (const auto& [coords, pos] : hexagons) {
         auto [q, r_coord] = coords;
         auto [x, y] = pos;
@@ -295,10 +295,10 @@ void HexGrid::remove_plant(int q, int r) {
 float HexGrid::calculate_visibility(sf::Color hare_color, TerrainType terrain) {
     sf::Color ground_color;
     switch (terrain) {
-        case SOIL: ground_color = hexaworld::SOIL_COLOR; break;
-        case ROCK: ground_color = hexaworld::ROCK_COLOR; break;
-        case WATER: ground_color = hexaworld::WATER_COLOR; break;
-        default: ground_color = hexaworld::SOIL_COLOR; break;
+        case SOIL: ground_color = SOIL_COLOR; break;
+        case ROCK: ground_color = ROCK_COLOR; break;
+        case WATER: ground_color = WATER_COLOR; break;
+        default: ground_color = SOIL_COLOR; break;
     }
 
     // Euclidean distance in RGB space, normalized
@@ -448,7 +448,7 @@ void Hare::update(HexGrid& grid, const std::vector<Fox>& foxes, float delta_time
             if (!plant_dirs.empty() && prob < genome.movement_aggression) {
                 chosen_dirs = &plant_dirs;
             }
-            int chosen_dir = (*chosen_dirs)[hexaworld::gen() % chosen_dirs->size()];
+            int chosen_dir = (*chosen_dirs)[gen() % chosen_dirs->size()];
             TerrainType prev_terr = grid.get_terrain_type(q, r);
             move(chosen_dir);
             TerrainType current_terr = grid.get_terrain_type(q, r);
@@ -572,7 +572,7 @@ void Fox::update(HexGrid& grid, std::vector<Hare>& hares, const std::vector<Fox>
     energy -= delta_time * 0.012f;  // Slightly faster decay
     energy = std::max(0.0f, energy);
     // Debug: log energy occasionally
-    if (hexaworld::gen() % 1000 == 0) std::cout << "Fox energy: " << energy << std::endl;
+    if (gen() % 1000 == 0) std::cout << "Fox energy: " << energy << std::endl;
 
     // Digest
     digestion_time -= delta_time;
@@ -653,7 +653,7 @@ void Fox::update(HexGrid& grid, std::vector<Hare>& hares, const std::vector<Fox>
             if (!hare_dirs.empty() && prob_dist(rng) < genome.hunting_aggression) {
                 chosen_dirs = &hare_dirs;
             }
-            int chosen_dir = (*chosen_dirs)[hexaworld::gen() % chosen_dirs->size()];
+            int chosen_dir = (*chosen_dirs)[gen() % chosen_dirs->size()];
             move(chosen_dir);
             energy -= 0.05f / genome.movement_efficiency; // Energy cost, modified by efficiency
             move_timer = 0.0f;
@@ -733,7 +733,205 @@ void Fox::update_positions(HexGrid& grid) {
 }
 
 // ============================================================================
+// WOLF IMPLEMENTATION
+// ============================================================================
+
+void Wolf::update(HexGrid& grid, std::vector<Hare>& hares, std::vector<Fox>& foxes, float delta_time, std::mt19937& rng) {
+    if (is_dead) return;  // Already dead
+
+    // Update positions
+    update_positions(grid);
+
+    // Interpolate position
+    const float anim_speed = 200.0f; // pixels per second
+    sf::Vector2f diff = target_pos - current_pos;
+    float dist = std::sqrt(diff.x * diff.x + diff.y * diff.y);
+    if (dist > 0.1f) {
+        sf::Vector2f dir = diff / dist;
+        current_pos += dir * anim_speed * delta_time;
+        if ((target_pos - current_pos).length() < anim_speed * delta_time) current_pos = target_pos;
+    }
+
+    // Small time-based energy decay
+    energy -= delta_time * 0.01f;  // Slower decay
+    energy = std::max(0.0f, energy);
+
+    // Digest
+    digestion_time -= delta_time;
+
+    // Hunt if possible
+    bool hunted = hunt(grid, hares, foxes);
+    if (hunted) {
+        digestion_time = 15.0f;  // Longer digestion
+    }
+
+    // Handle pregnancy
+    if (energy > genome.reproduction_threshold && !is_pregnant) {
+        is_pregnant = true;
+        pregnancy_timer = 25.0f; // Longer pregnancy
+        energy = 4.0f; // Reset energy
+    }
+
+    if (is_pregnant) {
+        pregnancy_timer -= delta_time;
+        if (pregnancy_timer <= 0.0f) {
+            ready_to_give_birth = true;
+            is_pregnant = false;
+        }
+    }
+
+    // Move if energy allows and cooldown passed
+    move_timer += delta_time;
+    if (move_timer >= 0.6f && energy > 2.0f) {  // Slower movement
+        // Find valid directions
+        std::vector<int> valid_dirs;
+        for (int dir = 0; dir < 6; ++dir) {
+            auto [nq, nr] = grid.get_neighbor_coords(q, r, dir);
+            if (grid.has_hexagon(nq, nr)) {
+                TerrainType terr = grid.get_terrain_type(nq, nr);
+                if (std::find(allowed_terrains.begin(), allowed_terrains.end(), terr) != allowed_terrains.end()) {
+                    valid_dirs.push_back(dir);
+                }
+            }
+        }
+
+        if (!valid_dirs.empty()) {
+            // Prefer directions with visible prey
+            std::vector<int> prey_dirs;
+            const int vision_range = 4; // Better vision
+            int closest_prey_q = -1000, closest_prey_r = -1000;
+            int min_dist = vision_range + 1;
+            // Check hares
+            for (const auto& hare : hares) {
+                if (hare.is_dead || hare.is_burrowing) continue;
+                int dq = hare.q - q;
+                int dr = hare.r - r;
+                int dist = (std::abs(dq) + std::abs(dr) + std::abs(dq + dr)) / 2;
+                if (dist <= vision_range && dist > 0 && dist < min_dist) {
+                    TerrainType terr = grid.get_terrain_type(hare.q, hare.r);
+                    float visibility = HexGrid::calculate_visibility(hare.getColor(), terr);
+                    if (visibility > 0.1f) {
+                        min_dist = dist;
+                        closest_prey_q = hare.q;
+                        closest_prey_r = hare.r;
+                    }
+                }
+            }
+            // Check foxes
+            for (const auto& fox : foxes) {
+                if (fox.is_dead) continue;
+                int dq = fox.q - q;
+                int dr = fox.r - r;
+                int dist = (std::abs(dq) + std::abs(dr) + std::abs(dq + dr)) / 2;
+                if (dist <= vision_range && dist > 0 && dist < min_dist) {
+                    TerrainType terr = grid.get_terrain_type(fox.q, fox.r);
+                    float visibility = HexGrid::calculate_visibility(fox.getColor(), terr);
+                    if (visibility > 0.1f) {
+                        min_dist = dist;
+                        closest_prey_q = fox.q;
+                        closest_prey_r = fox.r;
+                    }
+                }
+            }
+            if (closest_prey_q != -1000) {
+                // Move towards the closest visible prey
+                for (int dir : valid_dirs) {
+                    auto [nnq, nnr] = grid.get_neighbor_coords(q, r, dir);
+                    int new_dq = closest_prey_q - nnq;
+                    int new_dr = closest_prey_r - nnr;
+                    int new_dist = (std::abs(new_dq) + std::abs(new_dr) + std::abs(new_dq + new_dr)) / 2;
+                    if (new_dist < min_dist) {
+                        prey_dirs.push_back(dir);
+                    }
+                }
+            }
+
+            std::uniform_real_distribution<float> prob_dist(0.0f, 1.0f);
+            const std::vector<int>* chosen_dirs = &valid_dirs;
+            if (!prey_dirs.empty() && prob_dist(rng) < genome.hunting_aggression) {
+                chosen_dirs = &prey_dirs;
+            }
+            int chosen_dir = (*chosen_dirs)[gen() % chosen_dirs->size()];
+            move(chosen_dir);
+            energy -= 0.08f / genome.movement_efficiency; // Higher cost
+            move_timer = 0.0f;
+        }
+    }
+
+    // Check for death
+    if (energy <= 0.0f && !is_dead) {
+        is_dead = true;
+        // Increase nutrients
+        auto it = grid.terrainTiles.find({q, r});
+        if (it != grid.terrainTiles.end() && it->second.type == SOIL) {
+            it->second.nutrients = std::min(1.0f, it->second.nutrients + 0.4f);
+        }
+        std::cout << "Wolf died at (" << q << ", " << r << ")" << std::endl;
+    }
+}
+
+bool Wolf::hunt(HexGrid& grid, std::vector<Hare>& hares, std::vector<Fox>& foxes) {
+    // First, check if there's prey on the same hex
+    for (auto it = hares.begin(); it != hares.end(); ++it) {
+        if (!it->is_dead && it->q == q && it->r == r) {
+            energy += it->energy;
+            energy = std::min(8.0f, energy);
+            hares.erase(it);
+            std::cout << "Wolf caught hare at (" << q << ", " << r << ")" << std::endl;
+            return true;
+        }
+    }
+    for (auto it = foxes.begin(); it != foxes.end(); ++it) {
+        if (!it->is_dead && it->q == q && it->r == r) {
+            energy += it->energy;
+            energy = std::min(8.0f, energy);
+            foxes.erase(it);
+            std::cout << "Wolf caught fox at (" << q << ", " << r << ")" << std::endl;
+            return true;
+        }
+    }
+    // Check adjacent hexes
+    for (int dir = 0; dir < 6; ++dir) {
+        auto [nq, nr] = grid.get_neighbor_coords(q, r, dir);
+        for (auto it = hares.begin(); it != hares.end(); ++it) {
+            if (!it->is_dead && it->q == nq && it->r == nr && !it->is_burrowing) {
+                TerrainType terr = grid.get_terrain_type(nq, nr);
+                float visibility = HexGrid::calculate_visibility(it->getColor(), terr);
+                if (visibility > 0.2f && speed > it->speed) {  // Better vision
+                    energy += it->energy;
+                    energy = std::min(8.0f, energy);
+                    hares.erase(it);
+                    std::cout << "Wolf caught hare at (" << nq << ", " << nr << ")" << std::endl;
+                    return true;
+                }
+                break;
+            }
+        }
+        for (auto it = foxes.begin(); it != foxes.end(); ++it) {
+            if (!it->is_dead && it->q == nq && it->r == nr) {
+                TerrainType terr = grid.get_terrain_type(nq, nr);
+                float visibility = HexGrid::calculate_visibility(it->getColor(), terr);
+                if (visibility > 0.2f && speed > it->speed) {
+                    energy += it->energy;
+                    energy = std::min(8.0f, energy);
+                    foxes.erase(it);
+                    std::cout << "Wolf caught fox at (" << nq << ", " << nr << ")" << std::endl;
+                    return true;
+                }
+                break;
+            }
+        }
+    }
+    return false;
+}
+
+void Wolf::update_positions(HexGrid& grid) {
+    auto [x, y] = grid.axial_to_pixel(q, r);
+    target_pos = sf::Vector2f(x, y);
+    if (current_pos == sf::Vector2f(0, 0)) current_pos = target_pos;
+}
+
+// ============================================================================
 // END OF HEX GRID CLASS IMPLEMENTATION
 // ============================================================================
 
-} // namespace hexaworld
