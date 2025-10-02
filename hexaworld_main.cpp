@@ -8,13 +8,27 @@
 #include <random>
 #include <SFML/Window.hpp>
 #include <vector>
+#include <cstdlib>
+#include <string>
 
 namespace hexaworld {
-std::mt19937 gen(42); // Fixed seed for repeatable simulation
+unsigned int get_seed() {
+    if (const char* env_seed = std::getenv("HEXAWORLD_SEED")) {
+        try {
+            return std::stoi(env_seed);
+        } catch (const std::exception&) {
+            // Fallback to constant if invalid
+        }
+    }
+    return RANDOM_SEED;
+}
+std::mt19937 gen(get_seed()); // Fixed seed for repeatable simulation
 }
 
 int main() {
     try {
+        unsigned int seed = hexaworld::get_seed();
+        std::cout << "Using seed: " << seed << std::endl;
 
         // Create renderer in windowed mode
         hexaworld::SFMLRenderer renderer(1280, 1024, "HexaWorld - Hexagonal Grid", false);
@@ -107,34 +121,26 @@ int main() {
                  soil_coords.push_back(coord);
              }
          }
-         std::shuffle(soil_coords.begin(), soil_coords.end(), hexaworld::gen);
-         size_t num_plants = std::min<size_t>(40, soil_coords.size());
-         for (size_t i = 0; i < num_plants; ++i) {
-             auto [q, r] = soil_coords[i];
-             if (!hexGrid.get_plant(q, r)) {
-                 auto it = hexGrid.terrainTiles.find({q, r});
-                 if (it != hexGrid.terrainTiles.end()) {
-                     hexGrid.plants.insert({{q, r}, hexaworld::Plant(q, r, hexaworld::SEED, it->second.nutrients)});
-                 }
-             }
-         }
-
-         // Add some mature plants for immediate food
-         std::shuffle(soil_coords.begin(), soil_coords.end(), hexaworld::gen); // reshuffle
-         int num_sprouts = std::min(20, (int)soil_coords.size() / 2);
-         for (int i = 0; i < num_sprouts; ++i) {
-             auto [q, r] = soil_coords[i];
-             if (!hexGrid.get_plant(q, r)) {
-                 hexGrid.plants.insert({{q, r}, hexaworld::Plant(q, r, hexaworld::SPROUT, hexGrid.terrainTiles.at({q, r}).nutrients)});
-             }
-         }
-         int num_mature = std::min(10, (int)soil_coords.size() / 4);
-         for (int i = num_sprouts; i < num_sprouts + num_mature && i < (int)soil_coords.size(); ++i) {
-             auto [q, r] = soil_coords[i];
-             if (!hexGrid.get_plant(q, r)) {
-                 hexGrid.plants.insert({{q, r}, hexaworld::Plant(q, r, hexaworld::PLANT, hexGrid.terrainTiles.at({q, r}).nutrients)});
-             }
+          std::shuffle(soil_coords.begin(), soil_coords.end(), hexaworld::gen);
+          size_t num_mature = std::min<size_t>(soil_coords.size() / 2, soil_coords.size());
+          size_t num_sprouts = std::min<size_t>(soil_coords.size() / 4, soil_coords.size());
+          // Place mature plants first
+          for (size_t i = 0; i < num_mature; ++i) {
+              auto [q, r] = soil_coords[i];
+              hexGrid.plants.insert({{q, r}, hexaworld::Plant(q, r, hexaworld::PLANT, hexGrid.terrainTiles.at({q, r}).nutrients)});
           }
+          // Then sprouts
+          for (size_t i = num_mature; i < num_mature + num_sprouts; ++i) {
+              auto [q, r] = soil_coords[i];
+              hexGrid.plants.insert({{q, r}, hexaworld::Plant(q, r, hexaworld::SPROUT, hexGrid.terrainTiles.at({q, r}).nutrients)});
+          }
+           // Then seeds
+           for (size_t i = num_mature + num_sprouts; i < soil_coords.size(); ++i) {
+               auto [q, r] = soil_coords[i];
+               hexGrid.plants.insert({{q, r}, hexaworld::Plant(q, r, hexaworld::SEED, hexGrid.terrainTiles.at({q, r}).nutrients)});
+           }
+
+
 
 
           // Create a movable object
@@ -145,6 +151,13 @@ int main() {
         // Hare logging
         bool enableHareLogging = true;
         auto last_log = std::chrono::steady_clock::now();
+
+        // Population graph data
+        std::vector<int> hare_history;
+        std::vector<int> plant_history;
+        float graph_timer = 0.0f;
+        const float GRAPH_UPDATE_INTERVAL = 1.0f; // Update every second
+        const size_t MAX_HISTORY = 1000;
 
         // Create hares on plant tiles
         std::vector<hexaworld::Hare> hares;
@@ -228,6 +241,34 @@ int main() {
                 hare.update(hexGrid, dt);
             }
 
+            // Handle hare reproduction when energy exceeds 1.5
+            std::vector<hexaworld::Hare> new_hares;
+            for (auto& hare : hares) {
+                if (hare.energy > 1.5f) {
+                    // Create offspring at same position
+                    new_hares.push_back(hexaworld::Hare(hare.q, hare.r));
+                    new_hares.back().energy = 0.75f;
+                    // Reset parent energy
+                    hare.energy = 0.75f;
+                    if (enableHareLogging) {
+                        std::cout << "Hare reproduced at (" << hare.q << ", " << hare.r << ")" << std::endl;
+                    }
+                }
+            }
+            hares.insert(hares.end(), new_hares.begin(), new_hares.end());
+
+            // Update population graph
+            graph_timer += dt;
+            if (graph_timer >= GRAPH_UPDATE_INTERVAL) {
+                hare_history.push_back(hares.size());
+                plant_history.push_back(hexGrid.plants.size());
+                if (hare_history.size() > MAX_HISTORY) {
+                    hare_history.erase(hare_history.begin());
+                    plant_history.erase(plant_history.begin());
+                }
+                graph_timer = 0.0f;
+            }
+
             // Remove dead hares
             hares.erase(std::remove_if(hares.begin(), hares.end(), [](const hexaworld::Hare& h) {
                 return h.is_dead;
@@ -306,17 +347,41 @@ int main() {
                 }
             }
 
-            // Draw hares
-            for (const auto& hare : hares) {
-                auto [hx, hy] = hexGrid.axial_to_pixel(hare.q, hare.r);
-                float hare_x = hx + center_x;
-                float hare_y = hy + center_y;
-                // Draw hare as khaki hexagon
-                auto points = renderer.calculateHexagonPoints(hare_x, hare_y, 6.0f);
-                std::vector<std::pair<float, float>> point_pairs;
-                for (auto& p : points) point_pairs.emplace_back(p.x, p.y);
-                renderer.drawConvexShape(point_pairs, hare.base_color.r, hare.base_color.g, hare.base_color.b, 255);
-            }
+             // Draw hares
+             for (const auto& hare : hares) {
+                 auto [hx, hy] = hexGrid.axial_to_pixel(hare.q, hare.r);
+                 float hare_x = hx + center_x;
+                 float hare_y = hy + center_y;
+                 // Draw hare as simple face: head circle, ears, eyes
+                 renderer.drawCircle(hare_x, hare_y, 6.0f, hare.base_color.r, hare.base_color.g, hare.base_color.b, 255); // Head
+                 renderer.drawCircle(hare_x - 3, hare_y - 6, 2.0f, hare.base_color.r - 20, hare.base_color.g - 20, hare.base_color.b - 20, 255); // Left ear
+                 renderer.drawCircle(hare_x + 3, hare_y - 6, 2.0f, hare.base_color.r - 20, hare.base_color.g - 20, hare.base_color.b - 20, 255); // Right ear
+                 renderer.drawCircle(hare_x - 2, hare_y - 1, 1.0f, 0, 0, 0, 255); // Left eye
+                 renderer.drawCircle(hare_x + 2, hare_y - 1, 1.0f, 0, 0, 0, 255); // Right eye
+             }
+
+             // Draw population graph (bottom 10% of screen)
+             int graph_height = renderer.getHeight() / 10;
+             int graph_y = renderer.getHeight() - graph_height;
+             renderer.drawRectangle(0, graph_y, renderer.getWidth(), graph_height, 0, 0, 0, 150); // Semi-transparent background
+             if (!hare_history.empty()) {
+                 int max_count = 0;
+                 for (int h : hare_history) max_count = std::max(max_count, h);
+                 for (int p : plant_history) max_count = std::max(max_count, p);
+                 if (max_count == 0) max_count = 1;
+                 for (size_t i = 1; i < hare_history.size(); ++i) {
+                     float x1 = (i - 1) * static_cast<float>(renderer.getWidth()) / (hare_history.size() - 1);
+                     float x2 = i * static_cast<float>(renderer.getWidth()) / (hare_history.size() - 1);
+                     // Hare line (red)
+                     float y1_h = graph_y + graph_height - (hare_history[i - 1] * static_cast<float>(graph_height) / max_count);
+                     float y2_h = graph_y + graph_height - (hare_history[i] * static_cast<float>(graph_height) / max_count);
+                     renderer.drawLine(x1, y1_h, x2, y2_h, 255, 0, 0, 255, 2.0f);
+                     // Plant line (green)
+                     float y1_p = graph_y + graph_height - (plant_history[i - 1] * static_cast<float>(graph_height) / max_count);
+                     float y2_p = graph_y + graph_height - (plant_history[i] * static_cast<float>(graph_height) / max_count);
+                     renderer.drawLine(x1, y1_p, x2, y2_p, 0, 255, 0, 255, 2.0f);
+                 }
+             }
 
             // Draw object
             if (showObject) {

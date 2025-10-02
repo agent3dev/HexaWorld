@@ -348,6 +348,18 @@ void Hare::update(HexGrid& grid, float delta_time) {
             move(chosen_dir);
             energy -= 0.02f; // Lower energy cost per move
             move_timer = 0.0f; // Reset timer on move
+
+            // Check for drowning in water
+            TerrainType current_terr = grid.get_terrain_type(q, r);
+            if (current_terr == WATER) {
+                consecutive_water_moves++;
+                if (consecutive_water_moves > 2) {
+                    is_dead = true;
+                    std::cout << "Hare drowned at (" << q << ", " << r << ")" << std::endl;
+                }
+            } else {
+                consecutive_water_moves = 0;
+            }
         }
     }
 
@@ -372,7 +384,7 @@ bool Hare::eat(HexGrid& grid) {
             case PLANT: energy += 0.5f; break;
             default: break;
         }
-        energy = std::min(1.0f, energy);
+        // No cap here; allow energy to exceed 1.5 for reproduction
         grid.remove_plant(q, r);
         return true;
     }

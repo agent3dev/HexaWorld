@@ -116,12 +116,13 @@ struct HexObject {
 // ============================================================================
 
 struct Hare : public HexObject {
-    std::vector<TerrainType> allowed_terrains = {SOIL};
+    std::vector<TerrainType> allowed_terrains = {SOIL, WATER};
     float energy = 1.0f;
     sf::Color base_color = sf::Color(210, 180, 140); // Khaki
     bool is_dead = false;
     float digestion_time = 0.0f;
     float move_timer = 0.0f;
+    int consecutive_water_moves = 0;
 
     Hare(int q, int r) : HexObject(q, r) {}
 
