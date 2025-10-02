@@ -368,10 +368,11 @@ int main() {
                  auto [hx, hy] = hexGrid.axial_to_pixel(hare.q, hare.r);
                  float hare_x = hx + center_x;
                  float hare_y = hy + center_y;
+                 sf::Color color = hare.getColor();
                  // Draw hare as simple face: head circle, ears, eyes
-                 renderer.drawCircle(hare_x, hare_y, 6.0f, hare.base_color.r, hare.base_color.g, hare.base_color.b, 255); // Head
-                 renderer.drawCircle(hare_x - 3, hare_y - 6, 2.0f, hare.base_color.r - 20, hare.base_color.g - 20, hare.base_color.b - 20, 255); // Left ear
-                 renderer.drawCircle(hare_x + 3, hare_y - 6, 2.0f, hare.base_color.r - 20, hare.base_color.g - 20, hare.base_color.b - 20, 255); // Right ear
+                 renderer.drawCircle(hare_x, hare_y, 6.0f, color.r, color.g, color.b, 255); // Head
+                 renderer.drawCircle(hare_x - 3, hare_y - 6, 2.0f, std::max(0, (int)color.r - 20), std::max(0, (int)color.g - 20), std::max(0, (int)color.b - 20), 255); // Left ear
+                 renderer.drawCircle(hare_x + 3, hare_y - 6, 2.0f, std::max(0, (int)color.r - 20), std::max(0, (int)color.g - 20), std::max(0, (int)color.b - 20), 255); // Right ear
                  renderer.drawCircle(hare_x - 2, hare_y - 1, 1.0f, 0, 0, 0, 255); // Left eye
                  renderer.drawCircle(hare_x + 2, hare_y - 1, 1.0f, 0, 0, 0, 255); // Right eye
              }

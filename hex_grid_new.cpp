@@ -1,6 +1,14 @@
 #include "hex_grid_new.hpp"
 #include "constants.hpp"
+#include <SFML/Graphics.hpp>
+#include <cstdint>
+#include <map>
+#include <memory>
+#include <utility>
+#include <vector>
+#include <random>
 #include <algorithm>
+#include <functional>
 #include <random>
 #include <chrono>
 #include <iostream>
@@ -380,6 +388,32 @@ void Hare::update(HexGrid& grid, float delta_time, std::mt19937& rng) {
         }
         std::cout << "Hare died at (" << q << ", " << r << ")" << std::endl;
     }
+}
+
+sf::Color Hare::getColor() const {
+    // Hash the genome to get a consistent color
+    size_t h1 = std::hash<float>{}(genome.reproduction_threshold);
+    size_t h2 = std::hash<float>{}(genome.movement_aggression);
+    size_t combined = h1 ^ (h2 << 1);
+
+    // Palette of colors: grays, browns, yellows, pinks
+    static const std::vector<sf::Color> palette = {
+        sf::Color(128, 128, 128), // Gray
+        sf::Color(169, 169, 169), // Dark gray
+        sf::Color(211, 211, 211), // Light gray
+        sf::Color(139, 69, 19),   // Brown
+        sf::Color(160, 82, 45),   // Sienna
+        sf::Color(205, 133, 63),  // Peru
+        sf::Color(255, 255, 0),   // Yellow
+        sf::Color(255, 215, 0),   // Gold
+        sf::Color(255, 255, 224), // Light yellow
+        sf::Color(255, 192, 203), // Pink
+        sf::Color(255, 20, 147),  // Deep pink
+        sf::Color(255, 182, 193)  // Light pink
+    };
+
+    int index = combined % palette.size();
+    return palette[index];
 }
 
 bool Hare::eat(HexGrid& grid) {

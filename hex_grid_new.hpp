@@ -128,6 +128,9 @@ struct Hare : public HexObject {
 
     Hare(int q, int r) : HexObject(q, r), genome() {}
 
+    // Get color based on genome
+    sf::Color getColor() const;
+
     // Update behavior: move and eat if possible
     void update(HexGrid& grid, float delta_time, std::mt19937& rng);
 
