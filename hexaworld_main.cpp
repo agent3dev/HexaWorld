@@ -76,9 +76,17 @@ int main() {
                           center_x, center_y,
                           renderer.getWidth(), renderer.getHeight());
 
-            // Draw object
+            // Draw object glow
             auto [ox, oy] = hexGrid.axial_to_pixel(obj.q, obj.r);
-            renderer.drawHexagon(ox + center_x, oy + center_y, hexaworld::HEX_SIZE,
+            float obj_x = ox + center_x;
+            float obj_y = oy + center_y;
+            for (int i = 3; i >= 1; --i) {
+                uint8_t alpha = 255 / (1 << i); // 128, 64, 32
+                renderer.drawCircle(obj_x, obj_y, hexaworld::HEX_SIZE + i * 3.0f, 255, 0, 0, alpha);
+            }
+
+            // Draw object
+            renderer.drawHexagon(obj_x, obj_y, hexaworld::HEX_SIZE,
                                  255, 0, 0,    // Red fill
                                  255, 255, 255, // White outline
                                  true);

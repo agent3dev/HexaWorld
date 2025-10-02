@@ -1,5 +1,6 @@
 #include "hex_grid_new.hpp"
 #include "constants.hpp"
+#include <algorithm>
 
 namespace hexaworld {
 
@@ -59,6 +60,7 @@ void HexGrid::draw(SFMLRenderer& renderer, uint8_t r, uint8_t g, uint8_t b,
                   float offset_x, float offset_y, int screen_width, int screen_height) const {
     const float sqrt3 = hexaworld::SQRT3;
     for (const auto& [coords, pos] : hexagons) {
+        auto [q, r_coord] = coords;
         auto [x, y] = pos;
         float cx = x + offset_x;
         float cy = y + offset_y;
@@ -67,7 +69,24 @@ void HexGrid::draw(SFMLRenderer& renderer, uint8_t r, uint8_t g, uint8_t b,
         float top = cy - hex_size * sqrt3 / 2.0f;
         float bottom = cy + hex_size * sqrt3 / 2.0f;
         if (left >= 0 && right <= screen_width && top >= 0 && bottom <= screen_height) {
-            renderer.drawHexagon(cx, cy, hex_size, r, g, b, outline_r, outline_g, outline_b, true);
+            // Calculate distance for brightness adjustment
+            float dist = std::max({std::abs(q), std::abs(r_coord), std::abs(q + r_coord)});
+            float factor = 1.0f - std::min(dist / 15.0f, 1.0f) * 0.5f;
+            uint8_t br = (uint8_t)(r * factor);
+            uint8_t bg = (uint8_t)(g * factor);
+            uint8_t bb = (uint8_t)(b * factor);
+
+            // Shine: lighter
+            uint8_t sr = std::min(255, (int)(br + 50));
+            uint8_t sg = std::min(255, (int)(bg + 50));
+            uint8_t sb = std::min(255, (int)(bb + 50));
+
+            // Shadow: darker
+            uint8_t shr = (uint8_t)(br * 0.5f);
+            uint8_t shg = (uint8_t)(bg * 0.5f);
+            uint8_t shb = (uint8_t)(bb * 0.5f);
+
+            renderer.drawHexagonWithShading(cx, cy, hex_size, br, bg, bb, outline_r, outline_g, outline_b, sr, sg, sb, shr, shg, shb);
         }
     }
 }

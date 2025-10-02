@@ -140,13 +140,23 @@ void SFMLRenderer::drawText(const std::string& text, float x, float y,
 }
 
 void SFMLRenderer::drawRectangle(float x, float y, float width, float height,
-                                uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
+                        uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
     if (!window_) return;
 
     sf::RectangleShape rect(sf::Vector2f(width, height));
     rect.setPosition(sf::Vector2f(x, y));
     rect.setFillColor(sf::Color(r, g, b, a));
     window_->draw(rect);
+}
+
+void SFMLRenderer::drawCircle(float center_x, float center_y, float radius,
+                              uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
+    if (!window_) return;
+
+    sf::CircleShape circle(radius);
+    circle.setPosition(sf::Vector2f(center_x - radius, center_y - radius));
+    circle.setFillColor(sf::Color(r, g, b, a));
+    window_->draw(circle);
 }
 
 // ============================================================================
