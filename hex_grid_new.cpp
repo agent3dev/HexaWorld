@@ -158,16 +158,7 @@ void HexGrid::draw(SFMLRenderer& renderer, uint8_t r, uint8_t g, uint8_t b,
             shadow1.setFillColor(sf::Color(shr, shg, shb));
             renderer.getWindow()->draw(shadow1);
 
-            // Draw outlines per edge
-            for (int i = 0; i < 6; ++i) {
-                int next = (i + 1) % 6;
-                auto [nq, nr] = get_neighbor_coords(q, r_coord, i);
-                uint8_t or_ = outline_r, og = outline_g, ob = outline_b; // default white
-                if (has_hexagon(nq, nr) && terrainTypes.at({nq, nr}) == type) {
-                    or_ = base_r; og = base_g; ob = base_b; // type color
-                }
-                renderer.drawLine(points[i].x, points[i].y, points[next].x, points[next].y, or_, og, ob, 255, 2.0f);
-            }
+
         }
     }
 }
