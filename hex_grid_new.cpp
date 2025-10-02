@@ -1,6 +1,7 @@
 #include "hex_grid_new.hpp"
 #include "constants.hpp"
 #include <algorithm>
+#include <random>
 
 namespace hexaworld {
 
@@ -20,6 +21,13 @@ void HexGrid::add_hexagon(int q, int r) {
     if (!has_hexagon(q, r)) {
         auto [x, y] = axial_to_pixel(q, r);
         hexagons[{q, r}] = {x, y};
+
+        // Assign random terrain type
+        static std::random_device rd;
+        static std::mt19937 gen(rd());
+        std::uniform_int_distribution<> dis(0, 2);
+        TerrainType type = static_cast<TerrainType>(dis(gen));
+        terrainTypes[{q, r}] = type;
     }
 }
 
@@ -69,12 +77,21 @@ void HexGrid::draw(SFMLRenderer& renderer, uint8_t r, uint8_t g, uint8_t b,
         float top = cy - hex_size * sqrt3 / 2.0f;
         float bottom = cy + hex_size * sqrt3 / 2.0f;
         if (left >= 0 && right <= screen_width && top >= 0 && bottom <= screen_height) {
+            // Get terrain type and base colors
+            TerrainType type = terrainTypes.at({q, r_coord});
+            uint8_t base_r, base_g, base_b;
+            switch (type) {
+                case SOIL: base_r = 139; base_g = 69; base_b = 19; break; // Brown
+                case WATER: base_r = 0; base_g = 100; base_b = 200; break; // Blue
+                case ROCK: base_r = 128; base_g = 128; base_b = 128; break; // Gray
+            }
+
             // Calculate distance for brightness adjustment
             float dist = std::max({std::abs(q), std::abs(r_coord), std::abs(q + r_coord)});
             float factor = 1.0f - std::min(dist / 15.0f, 1.0f) * 0.5f;
-            uint8_t br = (uint8_t)(r * factor);
-            uint8_t bg = (uint8_t)(g * factor);
-            uint8_t bb = (uint8_t)(b * factor);
+            uint8_t br = (uint8_t)(base_r * factor);
+            uint8_t bg = (uint8_t)(base_g * factor);
+            uint8_t bb = (uint8_t)(base_b * factor);
 
             // Shine: lighter
             uint8_t sr = std::min(255, (int)(br + 50));
