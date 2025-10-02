@@ -4,7 +4,9 @@
 #include <iostream>
 #include <thread>
 #include <chrono>
+#include <algorithm>
 #include <random>
+#include <SFML/Window.hpp>
 
 int main() {
     try {
@@ -77,7 +79,7 @@ int main() {
             renderer.pollEvent();
 
             // Check for 'c' key to toggle object visibility
-            if (renderer.getLastKey() == 'c') {
+            if (renderer.getLastKey() == sf::Keyboard::Key::C) {
                 showObject = !showObject;
             }
 

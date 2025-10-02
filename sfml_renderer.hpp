@@ -54,7 +54,7 @@ public:
 
     // Input handling
     bool isKeyPressed(int key) const;
-    int getLastKey() const;
+    sf::Keyboard::Key getLastKey() const;
 
     // Performance
     void setFramerateLimit(unsigned int limit);
@@ -73,7 +73,7 @@ private:
     std::unique_ptr<sf::Font> font_;
     sf::Clock clock_;
     float deltaTime_;
-    int lastKey_;
+    sf::Keyboard::Key lastKey_;
     bool shouldClose_;
 
     void loadFont();

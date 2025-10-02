@@ -6,7 +6,7 @@ namespace hexaworld {
 
 SFMLRenderer::SFMLRenderer(int width, int height, const std::string& title, bool fullscreen)
     : deltaTime_(0.0f),
-      lastKey_(-1),
+      lastKey_(sf::Keyboard::Key::Unknown),
       shouldClose_(false) {
 
     try {
@@ -70,7 +70,7 @@ bool SFMLRenderer::pollEvent() {
     // Reset last key at the start of each frame
     static bool keyProcessed = true;
     if (keyProcessed) {
-        lastKey_ = -1;
+        lastKey_ = sf::Keyboard::Key::Unknown;
         keyProcessed = false;
     }
 
@@ -81,7 +81,7 @@ bool SFMLRenderer::pollEvent() {
             return false;
         }
         if (const auto* keyEvent = event->getIf<sf::Event::KeyPressed>()) {
-            lastKey_ = static_cast<int>(keyEvent->code);
+            lastKey_ = keyEvent->code;
             keyProcessed = true;
 
             if (keyEvent->code == sf::Keyboard::Key::Escape) {
@@ -260,7 +260,7 @@ bool SFMLRenderer::isKeyPressed(int key) const {
     return sf::Keyboard::isKeyPressed(static_cast<sf::Keyboard::Key>(key));
 }
 
-int SFMLRenderer::getLastKey() const {
+sf::Keyboard::Key SFMLRenderer::getLastKey() const {
     return lastKey_;
 }
 
