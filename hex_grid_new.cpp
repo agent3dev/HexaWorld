@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <random>
 #include <chrono>
+#include <iostream>
 
 namespace hexaworld {
 
@@ -43,15 +44,30 @@ void HexGrid::add_hexagon(int q, int r) {
 
         TerrainType type;
         if (neighbor_counts.empty()) {
-            // No neighbors, random
-            std::uniform_int_distribution<> dis(0, 2);
-            type = static_cast<TerrainType>(dis(gen));
-        } else {
-            // 20% chance to be random anyway
-            if (rand_prob(gen) < 0.2) {
-                std::uniform_int_distribution<> dis(0, 2);
-                type = static_cast<TerrainType>(dis(gen));
+            // No neighbors, random, allow some rocks
+            std::uniform_int_distribution<> dis(0, 9);
+            int rand_val = dis(gen);
+            if (rand_val < 2) { // 20% rock
+                type = ROCK;
+            } else if (rand_val < 6) { // 40% soil
+                type = SOIL;
             } else {
+                type = WATER;
+            }
+        } else {
+                // 30% chance to be random anyway
+                if (rand_prob(gen) < 0.3) {
+                    // Random with some rocks
+                    std::uniform_int_distribution<> dis(0, 9);
+                    int rand_val = dis(gen);
+                    if (rand_val < 2) { // 20% rock
+                        type = ROCK;
+                    } else if (rand_val < 6) { // 40% soil
+                        type = SOIL;
+                    } else {
+                        type = WATER;
+                    }
+                } else {
                 // Choose the most common neighbor type
                 TerrainType most_common = SOIL;
                 int max_count = 0;
@@ -75,6 +91,11 @@ void HexGrid::add_hexagon(int q, int r) {
         float nutrients = std::clamp(base_nutrients + static_cast<float>(nutrient_var(gen)), 0.0f, 1.0f);
 
         terrainTiles.insert({{q, r}, TerrainTile(q, r, type, nutrients)});
+
+        // Spawn plant on soil with chance
+        if (type == SOIL && rand() % 100 < 10) { // 10% chance
+            plants.insert({{q, r}, Plant(q, r, SEED, nutrients)});
+        }
     }
 }
 
@@ -111,8 +132,10 @@ void HexGrid::expand_grid(int layers) {
 }
 
 void HexGrid::draw(SFMLRenderer& renderer, uint8_t r, uint8_t g, uint8_t b,
-                  uint8_t outline_r, uint8_t outline_g, uint8_t outline_b,
-                  float offset_x, float offset_y, int screen_width, int screen_height) const {
+                   uint8_t outline_r, uint8_t outline_g, uint8_t outline_b,
+                   float offset_x, float offset_y, int screen_width, int screen_height,
+                   float brightness_center_q, float brightness_center_r,
+                   bool has_alive_hares) const {
     const float sqrt3 = hexaworld::SQRT3;
     for (const auto& [coords, pos] : hexagons) {
         auto [q, r_coord] = coords;
@@ -132,13 +155,18 @@ void HexGrid::draw(SFMLRenderer& renderer, uint8_t r, uint8_t g, uint8_t b,
             uint8_t base_r, base_g, base_b;
             switch (type) {
                 case SOIL: base_r = 139; base_g = 69; base_b = 19; break; // Brown
-                case WATER: base_r = 0; base_g = 100; base_b = 200; break; // Blue
+                case WATER: base_r = 0; base_g = 150; base_b = 255; break; // Brighter Blue
                 case ROCK: base_r = 128; base_g = 128; base_b = 128; break; // Gray
             }
 
-            // Calculate distance for brightness adjustment
-            float dist = std::max({std::abs(q), std::abs(r_coord), std::abs(q + r_coord)});
-            float factor = 1.0f - std::min(dist / 15.0f, 1.0f) * 0.5f;
+            // Calculate distance for brightness adjustment from brightness center
+            float factor;
+            if (!has_alive_hares) {
+                factor = 0.5f;  // Dim whole map if no alive hares
+            } else {
+                float dist = std::max({std::abs(q - brightness_center_q), std::abs(r_coord - brightness_center_r), std::abs((q - brightness_center_q) + (r_coord - brightness_center_r))});
+                factor = 1.0f - std::min(dist / 15.0f, 1.0f) * 0.5f;
+            }
             uint8_t br = (uint8_t)(base_r * factor);
             uint8_t bg = (uint8_t)(base_g * factor);
             uint8_t bb = (uint8_t)(base_b * factor);
@@ -214,79 +242,7 @@ void HexGrid::draw(SFMLRenderer& renderer, uint8_t r, uint8_t g, uint8_t b,
             renderer.getWindow()->draw(shadow2);
         }
 
-            // Calculate distance for brightness adjustment
-            float dist = std::max({std::abs(q), std::abs(r_coord), std::abs(q + r_coord)});
-            float factor = 1.0f - std::min(dist / 15.0f, 1.0f) * 0.5f;
-            uint8_t br = (uint8_t)(base_r * factor);
-            uint8_t bg = (uint8_t)(base_g * factor);
-            uint8_t bb = (uint8_t)(base_b * factor);
 
-            // Draw drop shadow
-            std::vector<sf::Vector2f> shadow_points = hexagon_points;
-            for (auto& p : shadow_points) p = sf::Vector2f(cx + 3 + p.x * hex_size, cy + 3 + p.y * hex_size);
-            std::vector<std::pair<float, float>> shadow_point_pairs;
-            for (auto& p : shadow_points) shadow_point_pairs.emplace_back(p.x, p.y);
-            renderer.drawConvexShape(shadow_point_pairs, 0, 0, 0, 100);
-
-            // Draw filled hexagon as pizza slices
-            std::vector<sf::Vector2f> points = hexagon_points;
-            for (auto& p : points) p = sf::Vector2f(cx + p.x * hex_size, cy + p.y * hex_size);
-            for (int i = 0; i < 6; ++i) {
-                sf::ConvexShape triangle(3);
-                triangle.setPoint(0, sf::Vector2f(cx, cy));
-                triangle.setPoint(1, points[i]);
-                triangle.setPoint(2, points[(i + 1) % 6]);
-                // Fixed spot color variation for performance
-                float variation = (i % 3) * 10.0f - 10.0f; // -10, 0, 10
-                uint8_t tr = std::clamp((int)br + (int)variation, 0, 255);
-                uint8_t tg = std::clamp((int)bg + (int)variation, 0, 255);
-                uint8_t tb = std::clamp((int)bb + (int)variation, 0, 255);
-                triangle.setFillColor(sf::Color(tr, tg, tb));
-                renderer.getWindow()->draw(triangle);
-            }
-
-            // Shine: lighter
-            uint8_t sr = std::min(255, (int)(br + 80));
-            uint8_t sg = std::min(255, (int)(bg + 80));
-            uint8_t sb = std::min(255, (int)(bb + 80));
-
-            // Shadow: darker
-            uint8_t shr = (uint8_t)(br * 0.3f);
-            uint8_t shg = (uint8_t)(bg * 0.3f);
-            uint8_t shb = (uint8_t)(bb * 0.3f);
-
-            // Draw shine triangles (top-right portions)
-            sf::ConvexShape shine1(3);
-            shine1.setPoint(0, sf::Vector2f(cx, cy));
-            shine1.setPoint(1, points[0]);
-            shine1.setPoint(2, points[1]);
-            shine1.setFillColor(sf::Color(sr, sg, sb));
-            renderer.getWindow()->draw(shine1);
-
-            // Additional shine
-            sf::ConvexShape shine2(3);
-            shine2.setPoint(0, sf::Vector2f(cx, cy));
-            shine2.setPoint(1, points[1]);
-            shine2.setPoint(2, points[2]);
-            shine2.setFillColor(sf::Color(sr, sg, sb));
-            renderer.getWindow()->draw(shine2);
-
-            // Shadow triangles (bottom-left portions)
-            sf::ConvexShape shadow1(3);
-            shadow1.setPoint(0, sf::Vector2f(cx, cy));
-            shadow1.setPoint(1, points[3]);
-            shadow1.setPoint(2, points[4]);
-            shadow1.setFillColor(sf::Color(shr, shg, shb));
-            renderer.getWindow()->draw(shadow1);
-
-            // Additional shadow
-            sf::ConvexShape shadow2(3);
-            shadow2.setPoint(0, sf::Vector2f(cx, cy));
-            shadow2.setPoint(1, points[4]);
-            shadow2.setPoint(2, points[5]);
-            shadow2.setFillColor(sf::Color(shr, shg, shb));
-            renderer.getWindow()->draw(shadow2);
-        }
     }
 }
 
@@ -294,6 +250,12 @@ std::pair<int, int> HexGrid::get_neighbor_coords(int q, int r, int direction) co
     auto [dq, dr] = directions[direction % 6];
     return {q + dq, r + dr};
 }
+
+
+
+// ============================================================================
+// END OF HEX GRID CLASS IMPLEMENTATION
+// ============================================================================
 
 const std::vector<std::pair<int, int>> HexGrid::directions = {
     {0, -1},  // top
@@ -303,6 +265,100 @@ const std::vector<std::pair<int, int>> HexGrid::directions = {
     {-1, 1},  // lower-left
     {-1, 0}   // upper-left
 };
+
+TerrainType HexGrid::get_terrain_type(int q, int r) const {
+    auto it = terrainTiles.find({q, r});
+    if (it != terrainTiles.end()) {
+        return it->second.type;
+    }
+    return SOIL; // Default
+}
+
+Plant* HexGrid::get_plant(int q, int r) {
+    auto it = plants.find({q, r});
+    if (it != plants.end()) {
+        return &it->second;
+    }
+    return nullptr;
+}
+
+void HexGrid::remove_plant(int q, int r) {
+    plants.erase({q, r});
+}
+
+// ============================================================================
+// HARE IMPLEMENTATION
+// ============================================================================
+
+void Hare::update(HexGrid& grid, float delta_time) {
+    if (is_dead) return;  // Already dead
+
+    // Decay energy
+    energy -= delta_time * 0.05f;
+    energy = std::max(0.0f, energy);
+
+    // Eat if on plant
+    eat(grid);
+
+    // Update allowed terrains: in panic mode (low energy), can go to rocks
+    allowed_terrains = {SOIL};
+    if (energy < 0.3f) {
+        allowed_terrains.push_back(ROCK);
+    }
+
+    // Move if energy allows
+    if (energy > 0.2f) {
+        // Find valid directions
+        std::vector<int> valid_dirs;
+        for (int dir = 0; dir < 6; ++dir) {
+            auto [nq, nr] = grid.get_neighbor_coords(q, r, dir);
+            if (grid.has_hexagon(nq, nr)) {
+                TerrainType terr = grid.get_terrain_type(nq, nr);
+                if (std::find(allowed_terrains.begin(), allowed_terrains.end(), terr) != allowed_terrains.end()) {
+                    valid_dirs.push_back(dir);
+                }
+            }
+        }
+
+        if (!valid_dirs.empty()) {
+            // Prefer directions with plants
+            std::vector<int> plant_dirs;
+            for (int dir : valid_dirs) {
+                auto [nq, nr] = grid.get_neighbor_coords(q, r, dir);
+                if (grid.get_plant(nq, nr)) {
+                    plant_dirs.push_back(dir);
+                }
+            }
+            int chosen_dir = plant_dirs.empty() ? valid_dirs[rand() % valid_dirs.size()] : plant_dirs[rand() % plant_dirs.size()];
+            move(chosen_dir);
+        }
+    }
+
+    // Check for death
+    if (energy <= 0.0f && !is_dead) {
+        is_dead = true;
+        // Increase nutrients on soil
+        auto it = grid.terrainTiles.find({q, r});
+        if (it != grid.terrainTiles.end() && it->second.type == SOIL) {
+            it->second.nutrients = std::min(1.0f, it->second.nutrients + 0.2f);
+        }
+        std::cout << "Hare died at (" << q << ", " << r << ")" << std::endl;
+    }
+}
+
+void Hare::eat(HexGrid& grid) {
+    Plant* plant = grid.get_plant(q, r);
+    if (plant && plant->stage != SEED) {  // Cannot eat seeds
+        // Gain energy based on stage
+        switch (plant->stage) {
+            case SPROUT: energy += 0.3f; break;
+            case PLANT: energy += 0.5f; break;
+            default: break;
+        }
+        energy = std::min(1.0f, energy);
+        grid.remove_plant(q, r);
+    }
+}
 
 // ============================================================================
 // END OF HEX GRID CLASS IMPLEMENTATION

@@ -46,6 +46,7 @@ public:
     float hex_size;
     std::map<std::pair<int, int>, std::pair<float, float>> hexagons;  // (q,r) -> (x,y)
     std::map<std::pair<int, int>, TerrainTile> terrainTiles;  // (q,r) -> tile
+    std::map<std::pair<int, int>, Plant> plants;  // (q,r) -> plant
     std::vector<sf::Vector2f> hexagon_points;  // Cached points for size 1.0
     static const std::vector<std::pair<int, int>> directions;
 
@@ -76,10 +77,21 @@ public:
     // Draw all hexagons
     void draw(SFMLRenderer& renderer, uint8_t r, uint8_t g, uint8_t b,
               uint8_t outline_r, uint8_t outline_g, uint8_t outline_b,
-              float offset_x, float offset_y, int screen_width, int screen_height) const;
+              float offset_x, float offset_y, int screen_width, int screen_height,
+              float brightness_center_q = 0, float brightness_center_r = 0,
+              bool has_alive_hares = true) const;
 
     // Get neighbor coordinates for a given direction
     std::pair<int, int> get_neighbor_coords(int q, int r, int direction) const;
+
+    // Get terrain type at coordinates
+    TerrainType get_terrain_type(int q, int r) const;
+
+    // Get plant at coordinates (nullptr if none)
+    Plant* get_plant(int q, int r);
+
+    // Remove plant at coordinates
+    void remove_plant(int q, int r);
 
 private:
 };
@@ -96,6 +108,25 @@ struct HexObject {
         q += dq;
         r += dr;
     }
+};
+
+// ============================================================================
+// HARE - Movable herbivore that eats plants
+// ============================================================================
+
+struct Hare : public HexObject {
+    std::vector<TerrainType> allowed_terrains = {SOIL};
+    float energy = 1.0f;
+    sf::Color base_color = sf::Color(210, 180, 140); // Khaki
+    bool is_dead = false;
+
+    Hare(int q, int r) : HexObject(q, r) {}
+
+    // Update behavior: move and eat if possible
+    void update(HexGrid& grid, float delta_time);
+
+    // Eat plant at current position
+    void eat(HexGrid& grid);
 };
 
 // ============================================================================

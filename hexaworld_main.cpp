@@ -68,26 +68,36 @@ int main() {
                  }
              }
              ++it;
-         }
+          }
 
-        // Add some plants randomly on soil tiles
-        std::vector<hexaworld::Plant> plants;
+        // Log terrain counts
+        int soil_count = 0, water_count = 0, rock_count = 0;
+        for (const auto& [coord, tile] : hexGrid.terrainTiles) {
+            if (tile.type == hexaworld::SOIL) soil_count++;
+            else if (tile.type == hexaworld::WATER) water_count++;
+            else if (tile.type == hexaworld::ROCK) rock_count++;
+        }
+        std::cout << "Terrain: SOIL " << soil_count << ", WATER " << water_count << ", ROCK " << rock_count << std::endl;
+
+        // Plants are now spawned in add_hexagon, but ensure some exist
+        // Add extra plants if needed
         std::vector<std::pair<int, int>> soil_coords;
         for (const auto& [coord, tile] : hexGrid.terrainTiles) {
             if (tile.type == hexaworld::SOIL) {
                 soil_coords.push_back(coord);
             }
         }
-        // Randomly select up to 20 soil tiles for plants
         std::random_device rd;
         std::mt19937 gen(rd());
         std::shuffle(soil_coords.begin(), soil_coords.end(), gen);
         size_t num_plants = std::min(20, (int)soil_coords.size());
         for (size_t i = 0; i < num_plants; ++i) {
             auto [q, r] = soil_coords[i];
-            auto it = hexGrid.terrainTiles.find({q, r});
-            if (it != hexGrid.terrainTiles.end()) {
-                plants.emplace_back(q, r, hexaworld::SEED, it->second.nutrients);
+            if (!hexGrid.get_plant(q, r)) {
+                auto it = hexGrid.terrainTiles.find({q, r});
+                if (it != hexGrid.terrainTiles.end()) {
+                    hexGrid.plants.insert({{q, r}, hexaworld::Plant(q, r, hexaworld::SEED, it->second.nutrients)});
+                }
             }
         }
 
@@ -95,7 +105,44 @@ int main() {
          // Create a movable object
         hexaworld::HexObject obj(0, 0);
         auto last_move = std::chrono::steady_clock::now();
-        bool showObject = true;
+        bool showObject = false;
+
+        // Hare logging
+        bool enableHareLogging = true;
+        auto last_log = std::chrono::steady_clock::now();
+
+        // Create hares on plant tiles
+        std::vector<hexaworld::Hare> hares;
+        std::vector<std::pair<int, int>> plant_coords;
+        for (const auto& [coord, plant] : hexGrid.plants) {
+            plant_coords.push_back(coord);
+        }
+        std::shuffle(plant_coords.begin(), plant_coords.end(), gen);
+        size_t grid_size = hexGrid.hexagons.size();
+        size_t num_hares = std::max<size_t>(10, grid_size / 500);
+        num_hares = std::min(num_hares, plant_coords.size());
+        for (size_t i = 0; i < num_hares; ++i) {
+            auto [q, r] = plant_coords[i];
+            hares.emplace_back(q, r);
+        }
+
+
+
+        // Initial brightness center on hares
+        float brightness_center_q = 0, brightness_center_r = 0;
+        int alive_count = 0;
+        for (const auto& hare : hares) {
+            if (hare.energy > 0) {
+                brightness_center_q += hare.q;
+                brightness_center_r += hare.r;
+                alive_count++;
+            }
+        }
+        bool has_alive_hares = alive_count > 0;
+        if (has_alive_hares) {
+            brightness_center_q /= alive_count;
+            brightness_center_r /= alive_count;
+        }
 
         // Main render loop
         while (!renderer.shouldClose()) {
@@ -109,14 +156,38 @@ int main() {
 
             // Update plant growth
             float dt = renderer.getDeltaTime();
-            for (auto& plant : plants) {
+            for (auto& [coord, plant] : hexGrid.plants) {
                 plant.growth_time += dt;
-                float threshold = 5.0f / (plant.nutrients + 0.1f); // avoid division by zero
+                float threshold = 10.0f / (plant.nutrients + 0.1f); // avoid division by zero
                 if (plant.growth_time >= threshold) {
                     if (plant.stage < hexaworld::PLANT) {
                         plant.stage = static_cast<hexaworld::PlantStage>(plant.stage + 1);
                     }
                     plant.growth_time = 0.0f;
+                }
+            }
+
+            // Update hares
+            for (auto& hare : hares) {
+                hare.update(hexGrid, dt);
+            }
+
+            // Remove dead hares
+            hares.erase(std::remove_if(hares.begin(), hares.end(), [](const hexaworld::Hare& h) {
+                return h.is_dead;
+            }), hares.end());
+
+            // Log hare status every 5 seconds
+            if (enableHareLogging) {
+                auto now = std::chrono::steady_clock::now();
+                if (now - last_log > std::chrono::seconds(5)) {
+                    for (size_t i = 0; i < hares.size(); ++i) {
+                        const auto& hare = hares[i];
+                        if (hare.energy > 0) {
+                            std::cout << "Hare #" << i << " is alive (energy: " << hare.energy << ")" << std::endl;
+                        }
+                    }
+                    last_log = now;
                 }
             }
 
@@ -133,6 +204,22 @@ int main() {
                 }
             }
 
+            // Calculate brightness center based on alive hares
+            float brightness_center_q = 0, brightness_center_r = 0;
+            int alive_count = 0;
+            for (const auto& hare : hares) {
+                if (!hare.is_dead) {
+                    brightness_center_q += hare.q;
+                    brightness_center_r += hare.r;
+                    alive_count++;
+                }
+            }
+            bool has_alive_hares = alive_count > 0;
+            if (has_alive_hares) {
+                brightness_center_q /= alive_count;
+                brightness_center_r /= alive_count;
+            }
+
             // Clear screen
             renderer.clear(20, 20, 30); // Dark blue background
 
@@ -141,10 +228,12 @@ int main() {
                           100, 150, 200,  // Light blue fill
                           255, 255, 255,  // White outline
                           center_x, center_y,
-                          renderer.getWidth(), renderer.getHeight());
+                          renderer.getWidth(), renderer.getHeight(),
+                          brightness_center_q, brightness_center_r,
+                          has_alive_hares);
 
             // Draw plants with pizza slice style
-            for (const auto& plant : plants) {
+            for (const auto& [coord, plant] : hexGrid.plants) {
                 auto [px, py] = hexGrid.axial_to_pixel(plant.q, plant.r);
                 float plant_x = px + center_x;
                 float plant_y = py + center_y;
@@ -173,6 +262,18 @@ int main() {
                     triangle.setFillColor(sf::Color(r, g, b));
                     renderer.getWindow()->draw(triangle);
                 }
+            }
+
+            // Draw hares
+            for (const auto& hare : hares) {
+                auto [hx, hy] = hexGrid.axial_to_pixel(hare.q, hare.r);
+                float hare_x = hx + center_x;
+                float hare_y = hy + center_y;
+                // Draw hare as khaki hexagon
+                auto points = renderer.calculateHexagonPoints(hare_x, hare_y, 6.0f);
+                std::vector<std::pair<float, float>> point_pairs;
+                for (auto& p : points) point_pairs.emplace_back(p.x, p.y);
+                renderer.drawConvexShape(point_pairs, hare.base_color.r, hare.base_color.g, hare.base_color.b, 255);
             }
 
             // Draw object
