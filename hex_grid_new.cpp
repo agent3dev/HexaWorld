@@ -412,19 +412,25 @@ sf::Color Hare::getColor() const {
     int weight_bin = std::clamp(static_cast<int>((genome.weight - 0.5f) / 1.0f * 2), 0, 1);
     int index = thresh_bin * 6 + aggression_bin * 2 + weight_bin;
 
-    // Palette of colors: grays, browns, yellows, soft pinks, white
+    // Palette of colors: interpolated grays, browns, pinks, white
     static const std::vector<sf::Color> palette = {
+        // Grays
         sf::Color(128, 128, 128), // Gray
+        sf::Color(149, 149, 149), // Mid gray 1
         sf::Color(169, 169, 169), // Dark gray
+        sf::Color(190, 190, 190), // Mid gray 2
         sf::Color(211, 211, 211), // Light gray
+        // Browns
         sf::Color(139, 69, 19),   // Brown
+        sf::Color(150, 76, 32),   // Brown mid 1
         sf::Color(160, 82, 45),   // Sienna
+        sf::Color(183, 108, 54),  // Brown mid 2
         sf::Color(205, 133, 63),  // Peru
-        sf::Color(255, 255, 0),   // Yellow
-        sf::Color(255, 215, 0),   // Gold
-        sf::Color(255, 255, 224), // Light yellow
+        // Pinks and white
         sf::Color(255, 192, 203), // Soft pink
+        sf::Color(255, 187, 198), // Pink mid 1
         sf::Color(255, 182, 193), // Light pink
+        sf::Color(255, 219, 219), // Pink mid 2
         sf::Color(255, 255, 255)  // White
     };
 
