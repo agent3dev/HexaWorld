@@ -25,6 +25,18 @@ struct TerrainTile {
     TerrainTile(int q, int r, TerrainType type, float nutrients) : q(q), r(r), type(type), nutrients(nutrients) {}
 };
 
+// Plant stages
+enum PlantStage { SEED, SPROUT, PLANT };
+
+// Plant class
+struct Plant {
+    int q, r;
+    PlantStage stage;
+    float growth_time;
+    float nutrients; // cached from tile
+    Plant(int q, int r, PlantStage stage, float nutrients) : q(q), r(r), stage(stage), growth_time(0.0f), nutrients(nutrients) {}
+};
+
 // ============================================================================
 // HEX GRID CLASS - Manages hexagonal grid with proper neighbor relationships
 // ============================================================================

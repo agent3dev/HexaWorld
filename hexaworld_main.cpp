@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <random>
 #include <SFML/Window.hpp>
+#include <vector>
 
 int main() {
     try {
@@ -68,6 +69,15 @@ int main() {
              ++it;
          }
 
+        // Add some plants
+        std::vector<hexaworld::Plant> plants;
+        // Add plants on soil tiles
+        for (const auto& [coord, tile] : hexGrid.terrainTiles) {
+            if (tile.type == hexaworld::SOIL && plants.size() < 10) {
+                plants.emplace_back(coord.first, coord.second, hexaworld::SEED, tile.nutrients);
+            }
+        }
+
 
          // Create a movable object
         hexaworld::HexObject obj(0, 0);
@@ -82,6 +92,19 @@ int main() {
             // Check for 'c' key to toggle object visibility
             if (renderer.getLastKey() == sf::Keyboard::Key::C) {
                 showObject = !showObject;
+            }
+
+            // Update plant growth
+            float dt = renderer.getDeltaTime();
+            for (auto& plant : plants) {
+                plant.growth_time += dt;
+                float threshold = 5.0f / (plant.nutrients + 0.1f); // avoid division by zero
+                if (plant.growth_time >= threshold) {
+                    if (plant.stage < hexaworld::PLANT) {
+                        plant.stage = static_cast<hexaworld::PlantStage>(plant.stage + 1);
+                    }
+                    plant.growth_time = 0.0f;
+                }
             }
 
             // Move object randomly every second
@@ -106,6 +129,24 @@ int main() {
                           255, 255, 255,  // White outline
                           center_x, center_y,
                           renderer.getWidth(), renderer.getHeight());
+
+            // Draw plants
+            for (const auto& plant : plants) {
+                auto [px, py] = hexGrid.axial_to_pixel(plant.q, plant.r);
+                float plant_x = px + center_x;
+                float plant_y = py + center_y;
+                uint8_t r, g, b;
+                float size;
+                switch (plant.stage) {
+                    case hexaworld::SEED:
+                        r = 139; g = 69; b = 19; size = 2.0f; break; // Brown seed
+                    case hexaworld::SPROUT:
+                        r = 0; g = 128; b = 0; size = 4.0f; break; // Green sprout
+                    case hexaworld::PLANT:
+                        r = 0; g = 200; b = 0; size = 8.0f; break; // Bright green plant
+                }
+                renderer.drawCircle(plant_x, plant_y, size, r, g, b);
+            }
 
             // Draw object
             if (showObject) {
