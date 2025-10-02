@@ -2,6 +2,7 @@
 #include "constants.hpp"
 #include <algorithm>
 #include <random>
+#include <chrono>
 
 namespace hexaworld {
 
@@ -141,13 +142,15 @@ void HexGrid::draw(SFMLRenderer& renderer, uint8_t r, uint8_t g, uint8_t b,
                 triangle.setPoint(0, sf::Vector2f(cx, cy));
                 triangle.setPoint(1, points[i]);
                 triangle.setPoint(2, points[(i + 1) % 6]);
-                // Random spot color confined to terrain type
-                static std::random_device rd;
-                static std::mt19937 gen(rd());
-                std::uniform_int_distribution<> var_dis(-30, 30);
-                uint8_t tr = std::clamp((int)br + var_dis(gen), 0, 255);
-                uint8_t tg = std::clamp((int)bg + var_dis(gen), 0, 255);
-                uint8_t tb = std::clamp((int)bb + var_dis(gen), 0, 255);
+                // Wavy spot color animation confined to terrain type
+                static auto start_time = std::chrono::steady_clock::now();
+                auto current_time = std::chrono::steady_clock::now();
+                float time = std::chrono::duration<float>(current_time - start_time).count();
+                float speed = (type == ROCK) ? 0.5f : (type == SOIL) ? 1.0f : 2.0f;
+                float mod = sin(time * speed) * 20.0f;
+                uint8_t tr = std::clamp((int)br + (int)mod, 0, 255);
+                uint8_t tg = std::clamp((int)bg + (int)mod, 0, 255);
+                uint8_t tb = std::clamp((int)bb + (int)mod, 0, 255);
                 triangle.setFillColor(sf::Color(tr, tg, tb));
                 renderer.getWindow()->draw(triangle);
             }
