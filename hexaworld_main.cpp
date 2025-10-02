@@ -172,6 +172,9 @@ int main() {
         for (size_t i = 0; i < num_hares; ++i) {
             auto [q, r] = plant_coords[i];
             hares.emplace_back(q, r);
+            // Randomize genome for initial population
+            std::uniform_real_distribution<float> dist(1.0f, 2.0f);
+            hares.back().genome.reproduction_threshold = dist(hexaworld::gen);
         }
 
 
@@ -238,15 +241,16 @@ int main() {
 
             // Update hares
             for (auto& hare : hares) {
-                hare.update(hexGrid, dt);
+                hare.update(hexGrid, dt, hexaworld::gen);
             }
 
-            // Handle hare reproduction when energy exceeds 1.5
+            // Handle hare reproduction when energy exceeds threshold
             std::vector<hexaworld::Hare> new_hares;
             for (auto& hare : hares) {
-                if (hare.energy > 1.5f) {
+                if (hare.energy > hare.genome.reproduction_threshold) {
                     // Create offspring at same position
                     new_hares.push_back(hexaworld::Hare(hare.q, hare.r));
+                    new_hares.back().genome = hare.genome.mutate(hexaworld::gen);
                     new_hares.back().energy = 0.75f;
                     // Reset parent energy
                     hare.energy = 0.75f;

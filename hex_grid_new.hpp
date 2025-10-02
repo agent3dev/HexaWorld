@@ -1,6 +1,7 @@
 #pragma once
 
 #include "sfml_renderer.hpp"
+#include "ga.hpp"
 #include <cstdint>
 #include <map>
 #include <memory>
@@ -123,11 +124,12 @@ struct Hare : public HexObject {
     float digestion_time = 0.0f;
     float move_timer = 0.0f;
     int consecutive_water_moves = 0;
+    HareGenome genome;
 
-    Hare(int q, int r) : HexObject(q, r) {}
+    Hare(int q, int r) : HexObject(q, r), genome() {}
 
     // Update behavior: move and eat if possible
-    void update(HexGrid& grid, float delta_time);
+    void update(HexGrid& grid, float delta_time, std::mt19937& rng);
 
     // Eat plant at current position
     bool eat(HexGrid& grid);

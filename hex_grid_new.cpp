@@ -288,7 +288,7 @@ void HexGrid::remove_plant(int q, int r) {
 // HARE IMPLEMENTATION
 // ============================================================================
 
-void Hare::update(HexGrid& grid, float delta_time) {
+void Hare::update(HexGrid& grid, float delta_time, std::mt19937& rng) {
     if (is_dead) return;  // Already dead
 
     // Small time-based energy decay
