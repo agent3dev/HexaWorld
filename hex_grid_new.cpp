@@ -126,6 +126,12 @@ void HexGrid::draw(SFMLRenderer& renderer, uint8_t r, uint8_t g, uint8_t b,
             uint8_t bg = (uint8_t)(base_g * factor);
             uint8_t bb = (uint8_t)(base_b * factor);
 
+            // Draw drop shadow
+            auto shadow_points = renderer.calculateHexagonPoints(cx + 3, cy + 3, hex_size);
+            std::vector<std::pair<float, float>> shadow_point_pairs;
+            for (auto& p : shadow_points) shadow_point_pairs.emplace_back(p.x, p.y);
+            renderer.drawConvexShape(shadow_point_pairs, 0, 0, 0, 100); // Black semi-transparent
+
             // Draw filled hexagon
             auto points = renderer.calculateHexagonPoints(cx, cy, hex_size);
             std::vector<std::pair<float, float>> point_pairs;
@@ -133,14 +139,14 @@ void HexGrid::draw(SFMLRenderer& renderer, uint8_t r, uint8_t g, uint8_t b,
             renderer.drawConvexShape(point_pairs, br, bg, bb);
 
             // Shine: lighter
-            uint8_t sr = std::min(255, (int)(br + 50));
-            uint8_t sg = std::min(255, (int)(bg + 50));
-            uint8_t sb = std::min(255, (int)(bb + 50));
+            uint8_t sr = std::min(255, (int)(br + 80));
+            uint8_t sg = std::min(255, (int)(bg + 80));
+            uint8_t sb = std::min(255, (int)(bb + 80));
 
             // Shadow: darker
-            uint8_t shr = (uint8_t)(br * 0.5f);
-            uint8_t shg = (uint8_t)(bg * 0.5f);
-            uint8_t shb = (uint8_t)(bb * 0.5f);
+            uint8_t shr = (uint8_t)(br * 0.3f);
+            uint8_t shg = (uint8_t)(bg * 0.3f);
+            uint8_t shb = (uint8_t)(bb * 0.3f);
 
             // Draw shine triangles (top-right portions)
             sf::ConvexShape shine1(3);
@@ -150,6 +156,14 @@ void HexGrid::draw(SFMLRenderer& renderer, uint8_t r, uint8_t g, uint8_t b,
             shine1.setFillColor(sf::Color(sr, sg, sb));
             renderer.getWindow()->draw(shine1);
 
+            // Additional shine
+            sf::ConvexShape shine2(3);
+            shine2.setPoint(0, sf::Vector2f(cx, cy));
+            shine2.setPoint(1, points[1]);
+            shine2.setPoint(2, points[2]);
+            shine2.setFillColor(sf::Color(sr, sg, sb));
+            renderer.getWindow()->draw(shine2);
+
             // Shadow triangles (bottom-left portions)
             sf::ConvexShape shadow1(3);
             shadow1.setPoint(0, sf::Vector2f(cx, cy));
@@ -158,7 +172,13 @@ void HexGrid::draw(SFMLRenderer& renderer, uint8_t r, uint8_t g, uint8_t b,
             shadow1.setFillColor(sf::Color(shr, shg, shb));
             renderer.getWindow()->draw(shadow1);
 
-
+            // Additional shadow
+            sf::ConvexShape shadow2(3);
+            shadow2.setPoint(0, sf::Vector2f(cx, cy));
+            shadow2.setPoint(1, points[4]);
+            shadow2.setPoint(2, points[5]);
+            shadow2.setFillColor(sf::Color(shr, shg, shb));
+            renderer.getWindow()->draw(shadow2);
         }
     }
 }
