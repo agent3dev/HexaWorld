@@ -49,21 +49,29 @@ int main() {
         // Create a movable object
         hexaworld::HexObject obj(0, 0);
         auto last_move = std::chrono::steady_clock::now();
+        bool showObject = true;
 
         // Main render loop
         while (!renderer.shouldClose()) {
             // Handle events
             renderer.pollEvent();
 
+            // Check for 'c' key to toggle object visibility
+            if (renderer.getLastKey() == 'c') {
+                showObject = !showObject;
+            }
+
             // Move object randomly every second
-            auto now = std::chrono::steady_clock::now();
-            if (now - last_move > std::chrono::seconds(1)) {
-                std::random_device rd;
-                std::mt19937 gen(rd());
-                std::uniform_int_distribution<> dis(0, 5);
-                int dir = dis(gen);
-                obj.move(dir);
-                last_move = now;
+            if (showObject) {
+                auto now = std::chrono::steady_clock::now();
+                if (now - last_move > std::chrono::seconds(1)) {
+                    std::random_device rd;
+                    std::mt19937 gen(rd());
+                    std::uniform_int_distribution<> dis(0, 5);
+                    int dir = dis(gen);
+                    obj.move(dir);
+                    last_move = now;
+                }
             }
 
             // Clear screen
@@ -76,20 +84,22 @@ int main() {
                           center_x, center_y,
                           renderer.getWidth(), renderer.getHeight());
 
-            // Draw object glow
-            auto [ox, oy] = hexGrid.axial_to_pixel(obj.q, obj.r);
-            float obj_x = ox + center_x;
-            float obj_y = oy + center_y;
-            for (int i = 3; i >= 1; --i) {
-                uint8_t alpha = 255 / (1 << i); // 128, 64, 32
-                renderer.drawCircle(obj_x, obj_y, hexaworld::HEX_SIZE + i * 3.0f, 255, 0, 0, alpha);
-            }
-
             // Draw object
-            renderer.drawHexagon(obj_x, obj_y, hexaworld::HEX_SIZE,
-                                 255, 0, 0,    // Red fill
-                                 255, 255, 255, // White outline
-                                 true);
+            if (showObject) {
+                auto [ox, oy] = hexGrid.axial_to_pixel(obj.q, obj.r);
+                float obj_x = ox + center_x;
+                float obj_y = oy + center_y;
+                for (int i = 3; i >= 1; --i) {
+                    uint8_t alpha = 255 / (1 << i); // 128, 64, 32
+                    renderer.drawCircle(obj_x, obj_y, hexaworld::HEX_SIZE + i * 3.0f, 255, 0, 0, alpha);
+                }
+
+                // Draw object
+                renderer.drawHexagon(obj_x, obj_y, hexaworld::HEX_SIZE,
+                                     255, 0, 0,    // Red fill
+                                     255, 255, 255, // White outline
+                                     true);
+            }
 
 
             // Display frame
