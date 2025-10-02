@@ -156,6 +156,9 @@ int main() {
                     case hexaworld::PLANT:
                         r = 0; g = 100; b = 0; break; // Dark green plant
                 }
+                // Draw shadow
+                renderer.drawCircle(plant_x + 2, plant_y + 2, 6.0f, 0, 0, 0, 100);
+                // Draw plant
                 renderer.drawCircle(plant_x, plant_y, 6.0f, r, g, b);
             }
 
