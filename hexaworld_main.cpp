@@ -406,7 +406,7 @@ int main() {
                  }
              }
 
-             // Display average genome stats
+             // Display average genome stats and current population
              float sum_threshold = 0.0f;
              float sum_aggression = 0.0f;
              float sum_weight = 0.0f;
@@ -422,7 +422,8 @@ int main() {
              float avg_threshold = genome_count > 0 ? sum_threshold / genome_count : 0.0f;
              float avg_aggression = genome_count > 0 ? sum_aggression / genome_count : 0.0f;
              float avg_weight = genome_count > 0 ? sum_weight / genome_count : 0.0f;
-             std::string stats_text = "Avg Threshold: " + std::to_string(avg_threshold) + " | Avg Aggression: " + std::to_string(avg_aggression) + " | Avg Weight: " + std::to_string(avg_weight);
+             int plant_count = hexGrid.plants.size();
+             std::string stats_text = "Hares: " + std::to_string(genome_count) + " | Plants: " + std::to_string(plant_count) + " | Avg Threshold: " + std::to_string(avg_threshold).substr(0,4) + " | Avg Aggression: " + std::to_string(avg_aggression).substr(0,4) + " | Avg Weight: " + std::to_string(avg_weight).substr(0,4);
              renderer.drawText(stats_text, 10, graph_y + 10, 255, 255, 255, 16);
 
             // Draw object
