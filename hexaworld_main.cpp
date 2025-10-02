@@ -210,14 +210,20 @@ int main() {
                 showObject = !showObject;
             }
 
-            // Check for 'g' key to log hare genomes
-            if (renderer.getLastKey() == sf::Keyboard::Key::G) {
-                std::cout << "Current hare genomes:" << std::endl;
-                for (const auto& hare : hares) {
-                    if (!hare.is_dead) {
-                        std::cout << "Hare at (" << hare.q << "," << hare.r << "): reproduction_threshold = " << hare.genome.reproduction_threshold << ", movement_aggression = " << hare.genome.movement_aggression << ", weight = " << hare.genome.weight << ", speed = " << hare.speed << std::endl;
+            // Check for 'g' key to log hare genomes (one-shot per press)
+            static bool gPressed = false;
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::G)) {
+                if (!gPressed) {
+                    std::cout << "Current hare genomes:" << std::endl;
+                    for (const auto& hare : hares) {
+                        if (!hare.is_dead) {
+                            std::cout << "Hare at (" << hare.q << "," << hare.r << "): reproduction_threshold = " << hare.genome.reproduction_threshold << ", movement_aggression = " << hare.genome.movement_aggression << ", weight = " << hare.genome.weight << ", speed = " << hare.speed << std::endl;
+                        }
                     }
+                    gPressed = true;
                 }
+            } else {
+                gPressed = false;
             }
 
             // Update plant growth
