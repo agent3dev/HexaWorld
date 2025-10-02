@@ -69,12 +69,24 @@ int main() {
              ++it;
          }
 
-        // Add some plants
+        // Add some plants randomly on soil tiles
         std::vector<hexaworld::Plant> plants;
-        // Add plants on soil tiles
+        std::vector<std::pair<int, int>> soil_coords;
         for (const auto& [coord, tile] : hexGrid.terrainTiles) {
-            if (tile.type == hexaworld::SOIL && plants.size() < 10) {
-                plants.emplace_back(coord.first, coord.second, hexaworld::SEED, tile.nutrients);
+            if (tile.type == hexaworld::SOIL) {
+                soil_coords.push_back(coord);
+            }
+        }
+        // Randomly select up to 20 soil tiles for plants
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::shuffle(soil_coords.begin(), soil_coords.end(), gen);
+        size_t num_plants = std::min(20, (int)soil_coords.size());
+        for (size_t i = 0; i < num_plants; ++i) {
+            auto [q, r] = soil_coords[i];
+            auto it = hexGrid.terrainTiles.find({q, r});
+            if (it != hexGrid.terrainTiles.end()) {
+                plants.emplace_back(q, r, hexaworld::SEED, it->second.nutrients);
             }
         }
 
@@ -136,16 +148,15 @@ int main() {
                 float plant_x = px + center_x;
                 float plant_y = py + center_y;
                 uint8_t r, g, b;
-                float size;
                 switch (plant.stage) {
                     case hexaworld::SEED:
-                        r = 139; g = 69; b = 19; size = 2.0f; break; // Brown seed
+                        r = 139; g = 69; b = 19; break; // Brown seed
                     case hexaworld::SPROUT:
-                        r = 0; g = 128; b = 0; size = 4.0f; break; // Green sprout
+                        r = 34; g = 139; b = 34; break; // Forest green sprout
                     case hexaworld::PLANT:
-                        r = 0; g = 200; b = 0; size = 8.0f; break; // Bright green plant
+                        r = 0; g = 100; b = 0; break; // Dark green plant
                 }
-                renderer.drawCircle(plant_x, plant_y, size, r, g, b);
+                renderer.drawCircle(plant_x, plant_y, 6.0f, r, g, b);
             }
 
             // Draw object
