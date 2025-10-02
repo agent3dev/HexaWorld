@@ -141,13 +141,13 @@ void HexGrid::draw(SFMLRenderer& renderer, uint8_t r, uint8_t g, uint8_t b,
                 triangle.setPoint(0, sf::Vector2f(cx, cy));
                 triangle.setPoint(1, points[i]);
                 triangle.setPoint(2, points[(i + 1) % 6]);
-                // Random spot color for each slice
+                // Random spot color confined to terrain type
                 static std::random_device rd;
                 static std::mt19937 gen(rd());
-                std::uniform_int_distribution<> col_dis(0, 255);
-                uint8_t tr = col_dis(gen);
-                uint8_t tg = col_dis(gen);
-                uint8_t tb = col_dis(gen);
+                std::uniform_int_distribution<> var_dis(-30, 30);
+                uint8_t tr = std::clamp((int)br + var_dis(gen), 0, 255);
+                uint8_t tg = std::clamp((int)bg + var_dis(gen), 0, 255);
+                uint8_t tb = std::clamp((int)bb + var_dis(gen), 0, 255);
                 triangle.setFillColor(sf::Color(tr, tg, tb));
                 renderer.getWindow()->draw(triangle);
             }
