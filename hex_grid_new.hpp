@@ -128,8 +128,11 @@ struct Hare : public HexObject {
     float pregnancy_timer = 0.0f;
     bool is_pregnant = false;
     bool ready_to_give_birth = false;
+    float speed = 1.0f;
 
-    Hare(int q, int r) : HexObject(q, r), genome() {}
+    Hare(int q, int r) : HexObject(q, r), genome() { update_speed(); }
+
+    void update_speed() { speed = 2.0f - genome.weight; }
 
     // Get color based on genome
     sf::Color getColor() const;

@@ -409,7 +409,8 @@ sf::Color Hare::getColor() const {
     // Quantize genome values to get similar colors for similar genomes
     int thresh_bin = std::clamp(static_cast<int>((genome.reproduction_threshold - 1.0f) / 1.0f * 4), 0, 3);
     int aggression_bin = std::clamp(static_cast<int>(genome.movement_aggression * 3), 0, 2);
-    int index = thresh_bin * 3 + aggression_bin;
+    int weight_bin = std::clamp(static_cast<int>((genome.weight - 0.5f) / 1.0f * 2), 0, 1);
+    int index = thresh_bin * 6 + aggression_bin * 2 + weight_bin;
 
     // Palette of colors: grays, browns, yellows, soft pinks, white
     static const std::vector<sf::Color> palette = {

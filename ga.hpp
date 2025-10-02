@@ -13,9 +13,10 @@ namespace hexaworld {
 struct HareGenome {
     float reproduction_threshold = 1.5f;
     float movement_aggression = 0.5f; // 0 = random movement, 1 = always seek plants
+    float weight = 1.0f; // 0.5 = light/fast, 1.5 = heavy/slow
 
     HareGenome() = default;
-    HareGenome(float thresh, float aggression) : reproduction_threshold(thresh), movement_aggression(aggression) {}
+    HareGenome(float thresh, float aggression, float w) : reproduction_threshold(thresh), movement_aggression(aggression), weight(w) {}
 
     HareGenome mutate(std::mt19937& gen) const {
         std::normal_distribution<float> dist(0.0f, 0.1f); // Small mutations
@@ -24,6 +25,8 @@ struct HareGenome {
         child.reproduction_threshold = std::clamp(child.reproduction_threshold, 1.0f, 2.0f);
         child.movement_aggression += dist(gen);
         child.movement_aggression = std::clamp(child.movement_aggression, 0.0f, 1.0f);
+        child.weight += dist(gen);
+        child.weight = std::clamp(child.weight, 0.5f, 1.5f);
         return child;
     }
 
@@ -31,7 +34,10 @@ struct HareGenome {
         if (reproduction_threshold != other.reproduction_threshold) {
             return reproduction_threshold < other.reproduction_threshold;
         }
-        return movement_aggression < other.movement_aggression;
+        if (movement_aggression != other.movement_aggression) {
+            return movement_aggression < other.movement_aggression;
+        }
+        return weight < other.weight;
     }
 };
 
@@ -46,9 +52,13 @@ public:
 
     void initialize(int pop_size) {
         population.resize(pop_size);
+        std::uniform_real_distribution<float> thresh_dist(1.0f, 2.0f);
+        std::uniform_real_distribution<float> aggression_dist(0.0f, 1.0f);
+        std::uniform_real_distribution<float> weight_dist(0.5f, 1.5f);
         for (auto& genome : population) {
-            std::uniform_real_distribution<float> dist(1.0f, 2.0f);
-            genome.reproduction_threshold = dist(gen);
+            genome.reproduction_threshold = thresh_dist(gen);
+            genome.movement_aggression = aggression_dist(gen);
+            genome.weight = weight_dist(gen);
         }
     }
 
@@ -74,6 +84,8 @@ public:
                 size_t p2 = dist(this->gen);
                 HareGenome child;
                 child.reproduction_threshold = (population[p1].reproduction_threshold + population[p2].reproduction_threshold) / 2.0f;
+                child.movement_aggression = (population[p1].movement_aggression + population[p2].movement_aggression) / 2.0f;
+                child.weight = (population[p1].weight + population[p2].weight) / 2.0f;
                 child = child.mutate(this->gen);
                 population.push_back(child);
             }
