@@ -411,7 +411,7 @@ sf::Color Hare::getColor() const {
     int aggression_bin = std::clamp(static_cast<int>(genome.movement_aggression * 3), 0, 2);
     int index = thresh_bin * 3 + aggression_bin;
 
-    // Palette of colors: grays, browns, yellows, pinks
+    // Palette of colors: grays, browns, yellows, soft pinks, white
     static const std::vector<sf::Color> palette = {
         sf::Color(128, 128, 128), // Gray
         sf::Color(169, 169, 169), // Dark gray
@@ -422,9 +422,9 @@ sf::Color Hare::getColor() const {
         sf::Color(255, 255, 0),   // Yellow
         sf::Color(255, 215, 0),   // Gold
         sf::Color(255, 255, 224), // Light yellow
-        sf::Color(255, 192, 203), // Pink
-        sf::Color(255, 20, 147),  // Deep pink
-        sf::Color(255, 182, 193)  // Light pink
+        sf::Color(255, 192, 203), // Soft pink
+        sf::Color(255, 182, 193), // Light pink
+        sf::Color(255, 255, 255)  // White
     };
 
     return palette[index % palette.size()];
