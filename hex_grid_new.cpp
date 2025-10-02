@@ -391,10 +391,10 @@ void Hare::update(HexGrid& grid, float delta_time, std::mt19937& rng) {
 }
 
 sf::Color Hare::getColor() const {
-    // Hash the genome to get a consistent color
-    size_t h1 = std::hash<float>{}(genome.reproduction_threshold);
-    size_t h2 = std::hash<float>{}(genome.movement_aggression);
-    size_t combined = h1 ^ (h2 << 1);
+    // Quantize genome values to get similar colors for similar genomes
+    int thresh_bin = std::clamp(static_cast<int>((genome.reproduction_threshold - 1.0f) / 1.0f * 4), 0, 3);
+    int aggression_bin = std::clamp(static_cast<int>(genome.movement_aggression * 3), 0, 2);
+    int index = thresh_bin * 3 + aggression_bin;
 
     // Palette of colors: grays, browns, yellows, pinks
     static const std::vector<sf::Color> palette = {
@@ -412,8 +412,7 @@ sf::Color Hare::getColor() const {
         sf::Color(255, 182, 193)  // Light pink
     };
 
-    int index = combined % palette.size();
-    return palette[index];
+    return palette[index % palette.size()];
 }
 
 bool Hare::eat(HexGrid& grid) {
