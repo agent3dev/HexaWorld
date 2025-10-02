@@ -205,6 +205,16 @@ int main() {
                 showObject = !showObject;
             }
 
+            // Check for 'g' key to log hare genomes
+            if (renderer.getLastKey() == sf::Keyboard::Key::G) {
+                std::cout << "Current hare genomes:" << std::endl;
+                for (const auto& hare : hares) {
+                    if (!hare.is_dead) {
+                        std::cout << "Hare at (" << hare.q << "," << hare.r << "): reproduction_threshold = " << hare.genome.reproduction_threshold << std::endl;
+                    }
+                }
+            }
+
             // Update plant growth
             float dt = renderer.getDeltaTime();
             for (auto& [coord, plant] : hexGrid.plants) {
@@ -386,6 +396,19 @@ int main() {
                      renderer.drawLine(x1, y1_p, x2, y2_p, 0, 255, 0, 255, 2.0f);
                  }
              }
+
+             // Display average reproduction threshold
+             float sum_threshold = 0.0f;
+             int genome_count = 0;
+             for (const auto& hare : hares) {
+                 if (!hare.is_dead) {
+                     sum_threshold += hare.genome.reproduction_threshold;
+                     genome_count++;
+                 }
+             }
+             float avg_threshold = genome_count > 0 ? sum_threshold / genome_count : 0.0f;
+             std::string threshold_text = "Avg Reproduction Threshold: " + std::to_string(avg_threshold);
+             renderer.drawText(threshold_text, 10, graph_y + 10, 255, 255, 255, 16);
 
             // Draw object
             if (showObject) {
