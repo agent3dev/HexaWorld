@@ -156,13 +156,8 @@ int main() {
                     case hexaworld::PLANT:
                         r = 0; g = 100; b = 0; break; // Dark green plant
                 }
-                // Draw asterisk shadow in darker green
-                uint8_t sr = r / 2, sg = g / 2, sb = b / 2; // Darker version of plant color
-                float len = 4.0f;
-                renderer.drawLine(plant_x - len, plant_y, plant_x + len, plant_y, sr, sg, sb, 150, 2.0f); // horizontal
-                renderer.drawLine(plant_x, plant_y - len, plant_x, plant_y + len, sr, sg, sb, 150, 2.0f); // vertical
-                renderer.drawLine(plant_x - len*0.7f, plant_y - len*0.7f, plant_x + len*0.7f, plant_y + len*0.7f, sr, sg, sb, 150, 2.0f); // diagonal \
-                renderer.drawLine(plant_x + len*0.7f, plant_y - len*0.7f, plant_x - len*0.7f, plant_y + len*0.7f, sr, sg, sb, 150, 2.0f); // diagonal /
+                // Draw drop shadow consistent with hexagons
+                renderer.drawCircle(plant_x + 2, plant_y + 2, 6.0f, 0, 0, 0, 100);
                 // Draw plant
                 renderer.drawCircle(plant_x, plant_y, 6.0f, r, g, b);
             }
