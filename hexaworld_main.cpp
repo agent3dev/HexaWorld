@@ -42,11 +42,31 @@ int main() {
                     ++it;
                 }
             }
-            if (hexGrid.hexagons.size() == old_size) break;
-        }
+             if (hexGrid.hexagons.size() == old_size) break;
+         }
+
+         // Remove isolated water tiles
+         for (auto it = hexGrid.terrainTypes.begin(); it != hexGrid.terrainTypes.end(); ) {
+             auto [q, r] = it->first;
+             if (it->second == hexaworld::WATER) {
+                 bool has_water_neighbor = false;
+                 for (int dir = 0; dir < 6; ++dir) {
+                     auto [nq, nr] = hexGrid.get_neighbor_coords(q, r, dir);
+                     if (hexGrid.terrainTypes.count({nq, nr}) && hexGrid.terrainTypes[{nq, nr}] == hexaworld::WATER) {
+                         has_water_neighbor = true;
+                         break;
+                     }
+                 }
+                 if (!has_water_neighbor) {
+                     it = hexGrid.terrainTypes.erase(it);
+                     continue;
+                 }
+             }
+             ++it;
+         }
 
 
-        // Create a movable object
+         // Create a movable object
         hexaworld::HexObject obj(0, 0);
         auto last_move = std::chrono::steady_clock::now();
         bool showObject = true;

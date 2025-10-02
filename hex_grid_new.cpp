@@ -111,7 +111,9 @@ void HexGrid::draw(SFMLRenderer& renderer, uint8_t r, uint8_t g, uint8_t b,
         float bottom = cy + hex_size * sqrt3 / 2.0f;
         if (left >= 0 && right <= screen_width && top >= 0 && bottom <= screen_height) {
             // Get terrain type and base colors
-            TerrainType type = terrainTypes.at({q, r_coord});
+            TerrainType type = SOIL;
+            auto it = terrainTypes.find({q, r_coord});
+            if (it != terrainTypes.end()) type = it->second;
             uint8_t base_r, base_g, base_b;
             switch (type) {
                 case SOIL: base_r = 139; base_g = 69; base_b = 19; break; // Brown

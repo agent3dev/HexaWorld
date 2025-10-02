@@ -50,9 +50,10 @@ public:
               uint8_t outline_r, uint8_t outline_g, uint8_t outline_b,
               float offset_x, float offset_y, int screen_width, int screen_height) const;
 
-private:
     // Get neighbor coordinates for a given direction
     std::pair<int, int> get_neighbor_coords(int q, int r, int direction) const;
+
+private:
 };
 
 // ============================================================================
