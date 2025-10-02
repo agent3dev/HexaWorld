@@ -22,11 +22,44 @@ void HexGrid::add_hexagon(int q, int r) {
         auto [x, y] = axial_to_pixel(q, r);
         hexagons[{q, r}] = {x, y};
 
-        // Assign random terrain type
+        // Assign terrain type based on adjacency
         static std::random_device rd;
         static std::mt19937 gen(rd());
-        std::uniform_int_distribution<> dis(0, 2);
-        TerrainType type = static_cast<TerrainType>(dis(gen));
+        std::uniform_real_distribution<> rand_prob(0.0, 1.0);
+
+        // Count neighbor types
+        std::map<TerrainType, int> neighbor_counts;
+        for (int dir = 0; dir < 6; ++dir) {
+            auto [nq, nr] = get_neighbor_coords(q, r, dir);
+            if (has_hexagon(nq, nr)) {
+                neighbor_counts[terrainTypes[{nq, nr}]]++;
+            }
+        }
+
+        TerrainType type;
+        if (neighbor_counts.empty()) {
+            // No neighbors, random
+            std::uniform_int_distribution<> dis(0, 2);
+            type = static_cast<TerrainType>(dis(gen));
+        } else {
+            // 20% chance to be random anyway
+            if (rand_prob(gen) < 0.2) {
+                std::uniform_int_distribution<> dis(0, 2);
+                type = static_cast<TerrainType>(dis(gen));
+            } else {
+                // Choose the most common neighbor type
+                TerrainType most_common = SOIL;
+                int max_count = 0;
+                for (auto& [t, count] : neighbor_counts) {
+                    if (count > max_count) {
+                        max_count = count;
+                        most_common = t;
+                    }
+                }
+                type = most_common;
+            }
+        }
+
         terrainTypes[{q, r}] = type;
     }
 }
