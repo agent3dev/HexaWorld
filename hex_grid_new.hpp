@@ -17,6 +17,7 @@ class HexGrid {
 public:
     float hex_size;
     std::map<std::pair<int, int>, std::pair<float, float>> hexagons;  // (q,r) -> (x,y)
+    static const std::vector<std::pair<int, int>> directions;
 
     HexGrid(float size) : hex_size(size) {}
 
@@ -38,21 +39,25 @@ public:
     // Draw all hexagons
     void draw(SFMLRenderer& renderer, uint8_t r, uint8_t g, uint8_t b,
               uint8_t outline_r, uint8_t outline_g, uint8_t outline_b,
-              float offset_x = 0.0f, float offset_y = 0.0f) const;
+              float offset_x, float offset_y, int screen_width, int screen_height) const;
 
 private:
     // Get neighbor coordinates for a given direction
     std::pair<int, int> get_neighbor_coords(int q, int r, int direction) const;
+};
 
-    // Neighbor directions for flat-top hexagons (axial coordinates)
-    const std::vector<std::pair<int, int>> directions = {
-        {0, -1},  // top
-        {1, -1},  // upper-right
-        {1, 0},   // lower-right
-        {0, 1},   // bottom
-        {-1, 1},  // lower-left
-        {-1, 0}   // upper-left
-    };
+// ============================================================================
+// HEX OBJECT - Movable object on the grid
+// ============================================================================
+
+struct HexObject {
+    int q, r;
+    HexObject(int q, int r) : q(q), r(r) {}
+    void move(int direction) {
+        auto [dq, dr] = HexGrid::directions[direction % 6];
+        q += dq;
+        r += dr;
+    }
 };
 
 // ============================================================================

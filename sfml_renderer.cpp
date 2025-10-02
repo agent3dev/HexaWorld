@@ -4,14 +4,19 @@
 
 namespace hexaworld {
 
-SFMLRenderer::SFMLRenderer(int width, int height, const std::string& title)
+SFMLRenderer::SFMLRenderer(int width, int height, const std::string& title, bool fullscreen)
     : deltaTime_(0.0f),
       lastKey_(-1),
       shouldClose_(false) {
 
     try {
-        window_ = std::make_unique<sf::RenderWindow>(
-            sf::VideoMode(sf::Vector2u(width, height)), title);
+        if (fullscreen) {
+            window_ = std::make_unique<sf::RenderWindow>(
+                sf::VideoMode::getDesktopMode(), title, sf::Style::Default, sf::State::Fullscreen);
+        } else {
+            window_ = std::make_unique<sf::RenderWindow>(
+                sf::VideoMode(sf::Vector2u(width, height)), title);
+        }
 
         if (!window_ || !window_->isOpen()) {
             std::cerr << "ERROR: Failed to create SFML window. Is DISPLAY set?" << std::endl;
@@ -239,6 +244,14 @@ void SFMLRenderer::setFramerateLimit(unsigned int limit) {
 
 float SFMLRenderer::getDeltaTime() const {
     return deltaTime_;
+}
+
+int SFMLRenderer::getWidth() const {
+    return window_ ? static_cast<int>(window_->getSize().x) : 0;
+}
+
+int SFMLRenderer::getHeight() const {
+    return window_ ? static_cast<int>(window_->getSize().y) : 0;
 }
 
 } // namespace hexaworld

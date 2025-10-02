@@ -10,7 +10,7 @@ namespace hexaworld {
 
 class SFMLRenderer {
 public:
-    SFMLRenderer(int width, int height, const std::string& title);
+    SFMLRenderer(int width, int height, const std::string& title, bool fullscreen);
     ~SFMLRenderer();
 
     // Window management
@@ -53,6 +53,10 @@ public:
     // Performance
     void setFramerateLimit(unsigned int limit);
     float getDeltaTime() const;
+
+    // Window size
+    int getWidth() const;
+    int getHeight() const;
 
 private:
     std::unique_ptr<sf::RenderWindow> window_;

@@ -1,5 +1,5 @@
 #include "hex_grid_new.hpp"
-#include <cmath>
+#include "constants.hpp"
 
 namespace hexaworld {
 
@@ -9,7 +9,7 @@ namespace hexaworld {
 
 std::pair<float, float> HexGrid::axial_to_pixel(int q, int r) const {
     // Convert axial coordinates to pixel position for flat-top hexagons
-    const float sqrt3 = std::sqrt(3.0f);
+    const float sqrt3 = hexaworld::SQRT3;
     float x = hex_size * (3.0f/2.0f * q);
     float y = hex_size * (sqrt3/2.0f * q + sqrt3 * r);
     return {x, y};
@@ -56,17 +56,35 @@ void HexGrid::expand_grid(int layers) {
 
 void HexGrid::draw(SFMLRenderer& renderer, uint8_t r, uint8_t g, uint8_t b,
                   uint8_t outline_r, uint8_t outline_g, uint8_t outline_b,
-                  float offset_x, float offset_y) const {
+                  float offset_x, float offset_y, int screen_width, int screen_height) const {
+    const float sqrt3 = hexaworld::SQRT3;
     for (const auto& [coords, pos] : hexagons) {
         auto [x, y] = pos;
-        renderer.drawHexagon(x + offset_x, y + offset_y, hex_size, r, g, b, outline_r, outline_g, outline_b, true);
+        float cx = x + offset_x;
+        float cy = y + offset_y;
+        float left = cx - hex_size;
+        float right = cx + hex_size;
+        float top = cy - hex_size * sqrt3 / 2.0f;
+        float bottom = cy + hex_size * sqrt3 / 2.0f;
+        if (left >= 0 && right <= screen_width && top >= 0 && bottom <= screen_height) {
+            renderer.drawHexagon(cx, cy, hex_size, r, g, b, outline_r, outline_g, outline_b, true);
+        }
     }
 }
 
 std::pair<int, int> HexGrid::get_neighbor_coords(int q, int r, int direction) const {
-    auto [dq, dr] = directions[direction];
+    auto [dq, dr] = directions[direction % 6];
     return {q + dq, r + dr};
 }
+
+const std::vector<std::pair<int, int>> HexGrid::directions = {
+    {0, -1},  // top
+    {1, -1},  // upper-right
+    {1, 0},   // lower-right
+    {0, 1},   // bottom
+    {-1, 1},  // lower-left
+    {-1, 0}   // upper-left
+};
 
 // ============================================================================
 // END OF HEX GRID CLASS IMPLEMENTATION
