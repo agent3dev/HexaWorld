@@ -142,7 +142,7 @@ int main() {
                           center_x, center_y,
                           renderer.getWidth(), renderer.getHeight());
 
-            // Draw plants
+            // Draw plants with pizza slice style
             for (const auto& plant : plants) {
                 auto [px, py] = hexGrid.axial_to_pixel(plant.q, plant.r);
                 float plant_x = px + center_x;
@@ -156,10 +156,22 @@ int main() {
                     case hexaworld::PLANT:
                         r = 0; g = 100; b = 0; break; // Dark green plant
                 }
-                // Draw drop shadow consistent with hexagons
-                renderer.drawCircle(plant_x + 2, plant_y + 2, 6.0f, 0, 0, 0, 100);
-                // Draw plant
-                renderer.drawCircle(plant_x, plant_y, 6.0f, r, g, b);
+                // Draw drop shadow
+                auto shadow_points = renderer.calculateHexagonPoints(plant_x + 2, plant_y + 2, 4.0f);
+                std::vector<std::pair<float, float>> shadow_point_pairs;
+                for (auto& p : shadow_points) shadow_point_pairs.emplace_back(p.x, p.y);
+                renderer.drawConvexShape(shadow_point_pairs, 0, 0, 0, 100);
+
+                // Draw plant as pizza slices
+                auto points = renderer.calculateHexagonPoints(plant_x, plant_y, 4.0f);
+                for (int i = 0; i < 6; ++i) {
+                    sf::ConvexShape triangle(3);
+                    triangle.setPoint(0, sf::Vector2f(plant_x, plant_y));
+                    triangle.setPoint(1, points[i]);
+                    triangle.setPoint(2, points[(i + 1) % 6]);
+                    triangle.setFillColor(sf::Color(r, g, b));
+                    renderer.getWindow()->draw(triangle);
+                }
             }
 
             // Draw object
