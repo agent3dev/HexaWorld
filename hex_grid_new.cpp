@@ -132,11 +132,21 @@ void HexGrid::draw(SFMLRenderer& renderer, uint8_t r, uint8_t g, uint8_t b,
             for (auto& p : shadow_points) shadow_point_pairs.emplace_back(p.x, p.y);
             renderer.drawConvexShape(shadow_point_pairs, 0, 0, 0, 100); // Black semi-transparent
 
-            // Draw filled hexagon
+            // Draw filled hexagon as pizza slices
             auto points = renderer.calculateHexagonPoints(cx, cy, hex_size);
-            std::vector<std::pair<float, float>> point_pairs;
-            for (auto& p : points) point_pairs.emplace_back(p.x, p.y);
-            renderer.drawConvexShape(point_pairs, br, bg, bb);
+            for (int i = 0; i < 6; ++i) {
+                sf::ConvexShape triangle(3);
+                triangle.setPoint(0, sf::Vector2f(cx, cy));
+                triangle.setPoint(1, points[i]);
+                triangle.setPoint(2, points[(i + 1) % 6]);
+                // Gradient from top (bright) to bottom (dark)
+                float tri_factor = 1.0f - (i / 6.0f) * 0.4f;
+                uint8_t tr = std::min(255, (int)(br * tri_factor));
+                uint8_t tg = std::min(255, (int)(bg * tri_factor));
+                uint8_t tb = std::min(255, (int)(bb * tri_factor));
+                triangle.setFillColor(sf::Color(tr, tg, tb));
+                renderer.getWindow()->draw(triangle);
+            }
 
             // Shine: lighter
             uint8_t sr = std::min(255, (int)(br + 80));
