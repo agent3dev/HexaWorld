@@ -155,15 +155,11 @@ void HexGrid::draw(SFMLRenderer& renderer, uint8_t r, uint8_t g, uint8_t b,
                 triangle.setPoint(0, sf::Vector2f(cx, cy));
                 triangle.setPoint(1, points[i]);
                 triangle.setPoint(2, points[(i + 1) % 6]);
-                // Wavy spot color animation confined to terrain type
-                static auto start_time = std::chrono::steady_clock::now();
-                auto current_time = std::chrono::steady_clock::now();
-                float time = std::chrono::duration<float>(current_time - start_time).count();
-                float speed = (type == ROCK) ? ROCK_ANIM_SPEED : (type == SOIL) ? SOIL_ANIM_SPEED : WATER_ANIM_SPEED;
-                float mod = sin(time * speed) * 20.0f;
-                uint8_t tr = std::clamp((int)br + (int)mod, 0, 255);
-                uint8_t tg = std::clamp((int)bg + (int)mod, 0, 255);
-                uint8_t tb = std::clamp((int)bb + (int)mod, 0, 255);
+                // Fixed spot color variation for performance
+                float variation = (i % 3) * 10.0f - 10.0f; // -10, 0, 10
+                uint8_t tr = std::clamp((int)br + (int)variation, 0, 255);
+                uint8_t tg = std::clamp((int)bg + (int)variation, 0, 255);
+                uint8_t tb = std::clamp((int)bb + (int)variation, 0, 255);
                 triangle.setFillColor(sf::Color(tr, tg, tb));
                 renderer.getWindow()->draw(triangle);
             }
