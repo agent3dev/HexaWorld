@@ -344,7 +344,14 @@ void Hare::update(HexGrid& grid, float delta_time, std::mt19937& rng) {
                     plant_dirs.push_back(dir);
                 }
             }
-            int chosen_dir = plant_dirs.empty() ? valid_dirs[hexaworld::gen() % valid_dirs.size()] : plant_dirs[hexaworld::gen() % plant_dirs.size()];
+            // Use genome to decide movement strategy
+            std::uniform_real_distribution<float> prob_dist(0.0f, 1.0f);
+            float prob = prob_dist(rng);
+            const std::vector<int>* chosen_dirs = &valid_dirs;
+            if (!plant_dirs.empty() && prob < genome.movement_aggression) {
+                chosen_dirs = &plant_dirs;
+            }
+            int chosen_dir = (*chosen_dirs)[hexaworld::gen() % chosen_dirs->size()];
             move(chosen_dir);
             energy -= 0.02f; // Lower energy cost per move
             move_timer = 0.0f; // Reset timer on move

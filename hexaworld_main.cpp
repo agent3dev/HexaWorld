@@ -173,8 +173,10 @@ int main() {
             auto [q, r] = plant_coords[i];
             hares.emplace_back(q, r);
             // Randomize genome for initial population
-            std::uniform_real_distribution<float> dist(1.0f, 2.0f);
-            hares.back().genome.reproduction_threshold = dist(hexaworld::gen);
+            std::uniform_real_distribution<float> thresh_dist(1.0f, 2.0f);
+            std::uniform_real_distribution<float> aggression_dist(0.0f, 1.0f);
+            hares.back().genome.reproduction_threshold = thresh_dist(hexaworld::gen);
+            hares.back().genome.movement_aggression = aggression_dist(hexaworld::gen);
         }
 
 
@@ -210,7 +212,7 @@ int main() {
                 std::cout << "Current hare genomes:" << std::endl;
                 for (const auto& hare : hares) {
                     if (!hare.is_dead) {
-                        std::cout << "Hare at (" << hare.q << "," << hare.r << "): reproduction_threshold = " << hare.genome.reproduction_threshold << std::endl;
+                        std::cout << "Hare at (" << hare.q << "," << hare.r << "): reproduction_threshold = " << hare.genome.reproduction_threshold << ", movement_aggression = " << hare.genome.movement_aggression << std::endl;
                     }
                 }
             }
@@ -397,18 +399,21 @@ int main() {
                  }
              }
 
-             // Display average reproduction threshold
+             // Display average genome stats
              float sum_threshold = 0.0f;
+             float sum_aggression = 0.0f;
              int genome_count = 0;
              for (const auto& hare : hares) {
                  if (!hare.is_dead) {
                      sum_threshold += hare.genome.reproduction_threshold;
+                     sum_aggression += hare.genome.movement_aggression;
                      genome_count++;
                  }
              }
              float avg_threshold = genome_count > 0 ? sum_threshold / genome_count : 0.0f;
-             std::string threshold_text = "Avg Reproduction Threshold: " + std::to_string(avg_threshold);
-             renderer.drawText(threshold_text, 10, graph_y + 10, 255, 255, 255, 16);
+             float avg_aggression = genome_count > 0 ? sum_aggression / genome_count : 0.0f;
+             std::string stats_text = "Avg Threshold: " + std::to_string(avg_threshold) + " | Avg Aggression: " + std::to_string(avg_aggression);
+             renderer.drawText(stats_text, 10, graph_y + 10, 255, 255, 255, 16);
 
             // Draw object
             if (showObject) {

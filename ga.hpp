@@ -12,20 +12,26 @@ namespace hexaworld {
 
 struct HareGenome {
     float reproduction_threshold = 1.5f;
+    float movement_aggression = 0.5f; // 0 = random movement, 1 = always seek plants
 
     HareGenome() = default;
-    HareGenome(float thresh) : reproduction_threshold(thresh) {}
+    HareGenome(float thresh, float aggression) : reproduction_threshold(thresh), movement_aggression(aggression) {}
 
     HareGenome mutate(std::mt19937& gen) const {
         std::normal_distribution<float> dist(0.0f, 0.1f); // Small mutations
         HareGenome child = *this;
         child.reproduction_threshold += dist(gen);
-        child.reproduction_threshold = std::clamp(child.reproduction_threshold, 1.0f, 2.0f); // Clamp to reasonable range
+        child.reproduction_threshold = std::clamp(child.reproduction_threshold, 1.0f, 2.0f);
+        child.movement_aggression += dist(gen);
+        child.movement_aggression = std::clamp(child.movement_aggression, 0.0f, 1.0f);
         return child;
     }
 
     bool operator<(const HareGenome& other) const {
-        return reproduction_threshold < other.reproduction_threshold;
+        if (reproduction_threshold != other.reproduction_threshold) {
+            return reproduction_threshold < other.reproduction_threshold;
+        }
+        return movement_aggression < other.movement_aggression;
     }
 };
 
