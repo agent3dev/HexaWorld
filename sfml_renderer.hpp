@@ -37,6 +37,9 @@ public:
     void drawCircle(float center_x, float center_y, float radius,
                     uint8_t r, uint8_t g, uint8_t b, uint8_t a = 255);
 
+    void drawLine(float x1, float y1, float x2, float y2,
+                 uint8_t r, uint8_t g, uint8_t b, uint8_t a = 255, float thickness = 1.0f);
+
     // Hexagon-specific helpers
     void drawHexagon(float center_x, float center_y, float side_length,
                     uint8_t bg_r, uint8_t bg_g, uint8_t bg_b,
@@ -61,6 +64,10 @@ public:
     int getWidth() const;
     int getHeight() const;
 
+    // Utility
+    sf::RenderWindow* getWindow() const;
+    std::vector<sf::Vector2f> calculateHexagonPoints(float center_x, float center_y, float side_length) const;
+
 private:
     std::unique_ptr<sf::RenderWindow> window_;
     std::unique_ptr<sf::Font> font_;
@@ -70,7 +77,6 @@ private:
     bool shouldClose_;
 
     void loadFont();
-    std::vector<sf::Vector2f> calculateHexagonPoints(float center_x, float center_y, float side_length) const;
 };
 
 } // namespace hexaworld

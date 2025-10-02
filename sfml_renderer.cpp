@@ -159,6 +159,24 @@ void SFMLRenderer::drawCircle(float center_x, float center_y, float radius,
     window_->draw(circle);
 }
 
+void SFMLRenderer::drawLine(float x1, float y1, float x2, float y2,
+                           uint8_t r, uint8_t g, uint8_t b, uint8_t a, float thickness) {
+    if (!window_) return;
+
+    sf::Vector2f start(x1, y1);
+    sf::Vector2f end(x2, y2);
+    sf::Vector2f direction = end - start;
+    float length = std::sqrt(direction.x * direction.x + direction.y * direction.y);
+    if (length == 0) return;
+
+    sf::RectangleShape line(sf::Vector2f(length, thickness));
+    line.setPosition(start);
+    line.setFillColor(sf::Color(r, g, b, a));
+    float angle = std::atan2(direction.y, direction.x) * 180.0f / 3.14159f;
+    line.setRotation(sf::degrees(angle));
+    window_->draw(line);
+}
+
 // ============================================================================
 // HEXAGON POINT CALCULATION - DO NOT MODIFY
 // Uses 0° starting angle for flat-top hexagons (verified with FlatHexagon)
@@ -262,6 +280,10 @@ int SFMLRenderer::getWidth() const {
 
 int SFMLRenderer::getHeight() const {
     return window_ ? static_cast<int>(window_->getSize().y) : 0;
+}
+
+sf::RenderWindow* SFMLRenderer::getWindow() const {
+    return window_.get();
 }
 
 } // namespace hexaworld

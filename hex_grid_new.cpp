@@ -126,6 +126,12 @@ void HexGrid::draw(SFMLRenderer& renderer, uint8_t r, uint8_t g, uint8_t b,
             uint8_t bg = (uint8_t)(base_g * factor);
             uint8_t bb = (uint8_t)(base_b * factor);
 
+            // Draw filled hexagon
+            auto points = renderer.calculateHexagonPoints(cx, cy, hex_size);
+            std::vector<std::pair<float, float>> point_pairs;
+            for (auto& p : points) point_pairs.emplace_back(p.x, p.y);
+            renderer.drawConvexShape(point_pairs, br, bg, bb);
+
             // Shine: lighter
             uint8_t sr = std::min(255, (int)(br + 50));
             uint8_t sg = std::min(255, (int)(bg + 50));
@@ -136,7 +142,32 @@ void HexGrid::draw(SFMLRenderer& renderer, uint8_t r, uint8_t g, uint8_t b,
             uint8_t shg = (uint8_t)(bg * 0.5f);
             uint8_t shb = (uint8_t)(bb * 0.5f);
 
-            renderer.drawHexagonWithShading(cx, cy, hex_size, br, bg, bb, outline_r, outline_g, outline_b, sr, sg, sb, shr, shg, shb);
+            // Draw shine triangles (top-right portions)
+            sf::ConvexShape shine1(3);
+            shine1.setPoint(0, sf::Vector2f(cx, cy));
+            shine1.setPoint(1, points[0]);
+            shine1.setPoint(2, points[1]);
+            shine1.setFillColor(sf::Color(sr, sg, sb));
+            renderer.getWindow()->draw(shine1);
+
+            // Shadow triangles (bottom-left portions)
+            sf::ConvexShape shadow1(3);
+            shadow1.setPoint(0, sf::Vector2f(cx, cy));
+            shadow1.setPoint(1, points[3]);
+            shadow1.setPoint(2, points[4]);
+            shadow1.setFillColor(sf::Color(shr, shg, shb));
+            renderer.getWindow()->draw(shadow1);
+
+            // Draw outlines per edge
+            for (int i = 0; i < 6; ++i) {
+                int next = (i + 1) % 6;
+                auto [nq, nr] = get_neighbor_coords(q, r_coord, i);
+                uint8_t or_ = outline_r, og = outline_g, ob = outline_b; // default white
+                if (has_hexagon(nq, nr) && terrainTypes.at({nq, nr}) == type) {
+                    or_ = base_r; og = base_g; ob = base_b; // type color
+                }
+                renderer.drawLine(points[i].x, points[i].y, points[next].x, points[next].y, or_, og, ob, 255, 2.0f);
+            }
         }
     }
 }
