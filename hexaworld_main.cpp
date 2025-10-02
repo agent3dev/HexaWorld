@@ -14,6 +14,7 @@ int main() {
 
         // Create renderer in fullscreen mode
         hexaworld::SFMLRenderer renderer(1200, 800, "HexaWorld - Hexagonal Grid", true);
+        renderer.setFramerateLimit(60); // Limit FPS to reduce CPU usage
 
         // Center the grid in the window
         float center_x = renderer.getWidth() / 2.0f;

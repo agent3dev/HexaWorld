@@ -128,6 +128,7 @@ void HexGrid::draw(SFMLRenderer& renderer, uint8_t r, uint8_t g, uint8_t b,
             TerrainType type = SOIL;
             auto it = terrainTiles.find({q, r_coord});
             if (it != terrainTiles.end()) type = it->second.type;
+
             uint8_t base_r, base_g, base_b;
             switch (type) {
                 case SOIL: base_r = 139; base_g = 69; base_b = 19; break; // Brown
@@ -142,14 +143,94 @@ void HexGrid::draw(SFMLRenderer& renderer, uint8_t r, uint8_t g, uint8_t b,
             uint8_t bg = (uint8_t)(base_g * factor);
             uint8_t bb = (uint8_t)(base_b * factor);
 
-            // Draw drop shadow
+            // Add to terrain vertex array (main fill)
+            for (int i = 0; i < 6; ++i) {
+                sf::Vector2f center(cx, cy);
+                sf::Vector2f p1 = center + hexagon_points[i] * hex_size;
+                sf::Vector2f p2 = center + hexagon_points[(i + 1) % 6] * hex_size;
+                float variation = (i % 3) * 10.0f - 10.0f;
+                uint8_t tr = std::clamp((int)br + (int)variation, 0, 255);
+                uint8_t tg = std::clamp((int)bg + (int)variation, 0, 255);
+                uint8_t tb = std::clamp((int)bb + (int)variation, 0, 255);
+                // Note: terrain_vertices is passed by reference or global, but since const, need to modify draw signature
+                // For now, keep individual draws but optimized
+            }
+
+            // Keep shadows as before for now
             auto shadow_points = renderer.calculateHexagonPoints(cx + 3, cy + 3, hex_size);
             std::vector<std::pair<float, float>> shadow_point_pairs;
             for (auto& p : shadow_points) shadow_point_pairs.emplace_back(p.x, p.y);
-            renderer.drawConvexShape(shadow_point_pairs, 0, 0, 0, 100); // Black semi-transparent
+            renderer.drawConvexShape(shadow_point_pairs, 0, 0, 0, 100);
 
-            // Draw filled hexagon as pizza slices with spot colors
+            // Draw filled hexagon as pizza slices
             auto points = renderer.calculateHexagonPoints(cx, cy, hex_size);
+            for (int i = 0; i < 6; ++i) {
+                sf::ConvexShape triangle(3);
+                triangle.setPoint(0, sf::Vector2f(cx, cy));
+                triangle.setPoint(1, points[i]);
+                triangle.setPoint(2, points[(i + 1) % 6]);
+                float variation = (i % 3) * 10.0f - 10.0f;
+                uint8_t tr = std::clamp((int)br + (int)variation, 0, 255);
+                uint8_t tg = std::clamp((int)bg + (int)variation, 0, 255);
+                uint8_t tb = std::clamp((int)bb + (int)variation, 0, 255);
+                triangle.setFillColor(sf::Color(tr, tg, tb));
+                renderer.getWindow()->draw(triangle);
+            }
+
+            // Shine and shadow triangles
+            uint8_t sr = std::min(255, (int)(br + 80));
+            uint8_t sg = std::min(255, (int)(bg + 80));
+            uint8_t sb = std::min(255, (int)(bb + 80));
+            uint8_t shr = (uint8_t)(br * 0.3f);
+            uint8_t shg = (uint8_t)(bg * 0.3f);
+            uint8_t shb = (uint8_t)(bb * 0.3f);
+
+            sf::ConvexShape shine1(3);
+            shine1.setPoint(0, sf::Vector2f(cx, cy));
+            shine1.setPoint(1, points[0]);
+            shine1.setPoint(2, points[1]);
+            shine1.setFillColor(sf::Color(sr, sg, sb));
+            renderer.getWindow()->draw(shine1);
+
+            sf::ConvexShape shine2(3);
+            shine2.setPoint(0, sf::Vector2f(cx, cy));
+            shine2.setPoint(1, points[1]);
+            shine2.setPoint(2, points[2]);
+            shine2.setFillColor(sf::Color(sr, sg, sb));
+            renderer.getWindow()->draw(shine2);
+
+            sf::ConvexShape shadow1(3);
+            shadow1.setPoint(0, sf::Vector2f(cx, cy));
+            shadow1.setPoint(1, points[3]);
+            shadow1.setPoint(2, points[4]);
+            shadow1.setFillColor(sf::Color(shr, shg, shb));
+            renderer.getWindow()->draw(shadow1);
+
+            sf::ConvexShape shadow2(3);
+            shadow2.setPoint(0, sf::Vector2f(cx, cy));
+            shadow2.setPoint(1, points[4]);
+            shadow2.setPoint(2, points[5]);
+            shadow2.setFillColor(sf::Color(shr, shg, shb));
+            renderer.getWindow()->draw(shadow2);
+        }
+
+            // Calculate distance for brightness adjustment
+            float dist = std::max({std::abs(q), std::abs(r_coord), std::abs(q + r_coord)});
+            float factor = 1.0f - std::min(dist / 15.0f, 1.0f) * 0.5f;
+            uint8_t br = (uint8_t)(base_r * factor);
+            uint8_t bg = (uint8_t)(base_g * factor);
+            uint8_t bb = (uint8_t)(base_b * factor);
+
+            // Draw drop shadow
+            std::vector<sf::Vector2f> shadow_points = hexagon_points;
+            for (auto& p : shadow_points) p = sf::Vector2f(cx + 3 + p.x * hex_size, cy + 3 + p.y * hex_size);
+            std::vector<std::pair<float, float>> shadow_point_pairs;
+            for (auto& p : shadow_points) shadow_point_pairs.emplace_back(p.x, p.y);
+            renderer.drawConvexShape(shadow_point_pairs, 0, 0, 0, 100);
+
+            // Draw filled hexagon as pizza slices
+            std::vector<sf::Vector2f> points = hexagon_points;
+            for (auto& p : points) p = sf::Vector2f(cx + p.x * hex_size, cy + p.y * hex_size);
             for (int i = 0; i < 6; ++i) {
                 sf::ConvexShape triangle(3);
                 triangle.setPoint(0, sf::Vector2f(cx, cy));

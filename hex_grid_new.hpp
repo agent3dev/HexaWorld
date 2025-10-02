@@ -46,9 +46,17 @@ public:
     float hex_size;
     std::map<std::pair<int, int>, std::pair<float, float>> hexagons;  // (q,r) -> (x,y)
     std::map<std::pair<int, int>, TerrainTile> terrainTiles;  // (q,r) -> tile
+    std::vector<sf::Vector2f> hexagon_points;  // Cached points for size 1.0
     static const std::vector<std::pair<int, int>> directions;
 
-    HexGrid(float size) : hex_size(size) {}
+    HexGrid(float size) : hex_size(size) {
+        // Cache hexagon points for size 1.0
+        hexagon_points.resize(6);
+        for (int i = 0; i < 6; ++i) {
+            float angle = i * 3.14159265359f / 3.0f; // 60 degrees in radians
+            hexagon_points[i] = sf::Vector2f(std::cos(angle), std::sin(angle));
+        }
+    }
 
     // Convert axial coordinates to pixel position
     std::pair<float, float> axial_to_pixel(int q, int r) const;
