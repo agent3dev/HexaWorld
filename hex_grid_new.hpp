@@ -125,6 +125,9 @@ struct Hare : public HexObject {
     float move_timer = 0.0f;
     int consecutive_water_moves = 0;
     HareGenome genome;
+    float pregnancy_timer = 0.0f;
+    bool is_pregnant = false;
+    bool ready_to_give_birth = false;
 
     Hare(int q, int r) : HexObject(q, r), genome() {}
 

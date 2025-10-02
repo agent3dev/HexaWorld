@@ -378,6 +378,21 @@ void Hare::update(HexGrid& grid, float delta_time, std::mt19937& rng) {
         }
     }
 
+    // Handle pregnancy
+    if (energy > genome.reproduction_threshold && !is_pregnant) {
+        is_pregnant = true;
+        pregnancy_timer = 10.0f; // 10 seconds pregnancy
+        energy = 0.75f; // Reset energy
+    }
+
+    if (is_pregnant) {
+        pregnancy_timer -= delta_time;
+        if (pregnancy_timer <= 0.0f) {
+            ready_to_give_birth = true;
+            is_pregnant = false;
+        }
+    }
+
     // Check for death
     if (energy <= 0.0f && !is_dead) {
         is_dead = true;

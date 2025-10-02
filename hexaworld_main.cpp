@@ -256,22 +256,19 @@ int main() {
                 hare.update(hexGrid, dt, hexaworld::gen);
             }
 
-            // Handle hare reproduction when energy exceeds threshold
-            std::vector<hexaworld::Hare> new_hares;
+            // Handle hare birth
             for (auto& hare : hares) {
-                if (hare.energy > hare.genome.reproduction_threshold) {
+                if (hare.ready_to_give_birth) {
                     // Create offspring at same position
-                    new_hares.push_back(hexaworld::Hare(hare.q, hare.r));
-                    new_hares.back().genome = hare.genome.mutate(hexaworld::gen);
-                    new_hares.back().energy = 0.75f;
-                    // Reset parent energy
-                    hare.energy = 0.75f;
+                    hares.push_back(hexaworld::Hare(hare.q, hare.r));
+                    hares.back().genome = hare.genome.mutate(hexaworld::gen);
+                    hares.back().energy = 0.5f; // Lower starting energy for evolutionary pressure
+                    hare.ready_to_give_birth = false;
                     if (enableHareLogging) {
-                        std::cout << "Hare reproduced at (" << hare.q << ", " << hare.r << ")" << std::endl;
+                        std::cout << "Hare gave birth at (" << hare.q << ", " << hare.r << ")" << std::endl;
                     }
                 }
             }
-            hares.insert(hares.end(), new_hares.begin(), new_hares.end());
 
             // Update population graph
             graph_timer += dt;
