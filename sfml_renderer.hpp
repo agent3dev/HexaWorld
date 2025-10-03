@@ -8,7 +8,7 @@
 
 class SFMLRenderer {
 public:
-    SFMLRenderer(int width, int height, const std::string& title, bool fullscreen, int antialiasing = 0);
+    SFMLRenderer(int width, int height, const std::string& title, bool fullscreen, bool frameless = false, bool maximized = false, int antialiasing = 0);
     ~SFMLRenderer();
 
     // Window management

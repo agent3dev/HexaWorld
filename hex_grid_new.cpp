@@ -246,6 +246,32 @@ void HexGrid::draw(SFMLRenderer& renderer, uint8_t r, uint8_t g, uint8_t b,
             shadow2.setPoint(2, points[5]);
             shadow2.setFillColor(sf::Color(shr, shg, shb));
             renderer.getWindow()->draw(shadow2);
+
+            // Add wavy texture for water
+            if (type == WATER) {
+                std::mt19937 wave_gen(q * 1000 + r_coord);
+                std::uniform_real_distribution<float> offset_dist(-hex_size * 0.4f, hex_size * 0.4f);
+                std::uniform_real_distribution<float> size_dist(0.8f, 1.2f);
+
+                int num_waves = 12; // More circles for water effect
+                float wave_radius = hex_size * 0.25f;
+
+                for (int i = 0; i < num_waves; ++i) {
+                    float offset_x = offset_dist(wave_gen);
+                    float offset_y = offset_dist(wave_gen);
+                    float size_mult = size_dist(wave_gen);
+                    float radius = wave_radius * size_mult;
+
+                    // Lighter blue variants for wave highlights
+                    int color_var = (wave_gen() % 60) - 10;
+                    uint8_t wave_r = std::clamp((int)br + color_var, 0, 255);
+                    uint8_t wave_g = std::clamp((int)bg + color_var, 0, 255);
+                    uint8_t wave_b = std::clamp((int)bb + color_var + 20, 0, 255); // More blue
+                    uint8_t alpha = 100 + (wave_gen() % 100); // Semi-transparent
+
+                    renderer.drawCircle(cx + offset_x, cy + offset_y, radius, wave_r, wave_g, wave_b, alpha);
+                }
+            }
         }
 
 
@@ -410,6 +436,18 @@ void Hare::update(HexGrid& grid, const std::vector<Fox>& foxes, float delta_time
         }
 
         if (!valid_dirs.empty()) {
+            // Avoid fire (always)
+            std::vector<int> no_fire_dirs;
+            for (int dir : valid_dirs) {
+                auto [nq, nr] = grid.get_neighbor_coords(q, r, dir);
+                if (grid.fire_timers.find({nq, nr}) == grid.fire_timers.end()) {
+                    no_fire_dirs.push_back(dir);
+                }
+            }
+            if (!no_fire_dirs.empty()) {
+                valid_dirs = no_fire_dirs;
+            }
+
             // Fear: avoid directions with visible foxes
             std::vector<int> safe_dirs = valid_dirs;
             if (genome.fear > 0.7f) {
@@ -615,6 +653,18 @@ void Fox::update(HexGrid& grid, std::vector<Hare>& hares, const std::vector<Fox>
         }
 
         if (!valid_dirs.empty()) {
+            // Avoid fire (always)
+            std::vector<int> no_fire_dirs;
+            for (int dir : valid_dirs) {
+                auto [nq, nr] = grid.get_neighbor_coords(q, r, dir);
+                if (grid.fire_timers.find({nq, nr}) == grid.fire_timers.end()) {
+                    no_fire_dirs.push_back(dir);
+                }
+            }
+            if (!no_fire_dirs.empty()) {
+                valid_dirs = no_fire_dirs;
+            }
+
             // Prefer directions towards visible hares within vision range
             std::vector<int> hare_dirs;
             const int vision_range = 3; // Hexes away
@@ -796,6 +846,18 @@ void Wolf::update(HexGrid& grid, std::vector<Hare>& hares, std::vector<Fox>& fox
         }
 
         if (!valid_dirs.empty()) {
+            // Avoid fire (always)
+            std::vector<int> no_fire_dirs;
+            for (int dir : valid_dirs) {
+                auto [nq, nr] = grid.get_neighbor_coords(q, r, dir);
+                if (grid.fire_timers.find({nq, nr}) == grid.fire_timers.end()) {
+                    no_fire_dirs.push_back(dir);
+                }
+            }
+            if (!no_fire_dirs.empty()) {
+                valid_dirs = no_fire_dirs;
+            }
+
             // Prefer directions with visible prey
             std::vector<int> prey_dirs;
             const int vision_range = 4; // Better vision
@@ -929,6 +991,81 @@ void Wolf::update_positions(HexGrid& grid) {
     auto [x, y] = grid.axial_to_pixel(q, r);
     target_pos = sf::Vector2f(x, y);
     if (current_pos == sf::Vector2f(0, 0)) current_pos = target_pos;
+}
+
+// ============================================================================
+// SALMON IMPLEMENTATION
+// ============================================================================
+
+void Salmon::update_positions(HexGrid& grid) {
+    auto [x, y] = grid.axial_to_pixel(q, r);
+    target_pos = sf::Vector2f(x, y);
+    if (current_pos == sf::Vector2f(0, 0)) current_pos = target_pos;
+}
+
+void Salmon::update(HexGrid& grid, float delta_time, std::mt19937& rng) {
+    if (is_dead) return;
+
+    // Update positions
+    update_positions(grid);
+
+    // Interpolate position
+    const float anim_speed = 150.0f; // pixels per second
+    sf::Vector2f diff = target_pos - current_pos;
+    float dist = std::sqrt(diff.x * diff.x + diff.y * diff.y);
+    if (dist > 0.1f) {
+        sf::Vector2f dir = diff / dist;
+        current_pos += dir * anim_speed * delta_time;
+        if ((target_pos - current_pos).length() < anim_speed * delta_time) current_pos = target_pos;
+    }
+
+    // Small energy decay
+    energy -= delta_time * 0.005f;
+    energy = std::max(0.0f, energy);
+
+    // Move if timer allows
+    move_timer += delta_time;
+    if (move_timer >= 1.0f && energy > 0.0f) {
+        // Find valid directions (water only)
+        std::vector<int> valid_dirs;
+        for (int dir = 0; dir < 6; ++dir) {
+            auto [nq, nr] = grid.get_neighbor_coords(q, r, dir);
+            if (grid.has_hexagon(nq, nr) && grid.get_terrain_type(nq, nr) == WATER) {
+                valid_dirs.push_back(dir);
+            }
+        }
+
+        if (!valid_dirs.empty()) {
+            // Avoid fire (always)
+            std::vector<int> no_fire_dirs;
+            for (int dir : valid_dirs) {
+                auto [nq, nr] = grid.get_neighbor_coords(q, r, dir);
+                if (grid.fire_timers.find({nq, nr}) == grid.fire_timers.end()) {
+                    no_fire_dirs.push_back(dir);
+                }
+            }
+            if (!no_fire_dirs.empty()) {
+                valid_dirs = no_fire_dirs;
+            }
+
+            std::uniform_int_distribution<> dis(0, valid_dirs.size() - 1);
+            int dir = valid_dirs[dis(rng)];
+            auto [nq, nr] = grid.get_neighbor_coords(q, r, dir);
+            q = nq;
+            r = nr;
+            move_timer = 0.0f;
+        }
+    }
+
+    // Reproduction
+    if (energy > reproduction_threshold) {
+        ready_to_give_birth = true;
+    }
+
+    // Die if no energy
+    if (energy <= 0.0f) {
+        is_dead = true;
+    }
 }
 
 // ============================================================================

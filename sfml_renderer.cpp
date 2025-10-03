@@ -2,7 +2,7 @@
 #include <cmath>
 #include <iostream>
 
-SFMLRenderer::SFMLRenderer(int width, int height, const std::string& title, bool fullscreen, int antialiasing)
+SFMLRenderer::SFMLRenderer(int width, int height, const std::string& title, bool fullscreen, bool frameless, bool maximized, int antialiasing)
     : deltaTime_(0.0f),
       lastKey_(sf::Keyboard::Key::Unknown),
       shouldClose_(false) {
@@ -11,8 +11,18 @@ SFMLRenderer::SFMLRenderer(int width, int height, const std::string& title, bool
         sf::ContextSettings settings;
         settings.antiAliasingLevel = antialiasing;
 
-        sf::VideoMode mode = fullscreen ? sf::VideoMode::getDesktopMode() : sf::VideoMode(sf::Vector2u(width, height));
-        sf::State state = fullscreen ? sf::State::Fullscreen : sf::State::Windowed;
+        sf::VideoMode mode;
+        if (fullscreen || maximized) {
+            mode = sf::VideoMode::getDesktopMode();
+        } else {
+            mode = sf::VideoMode(sf::Vector2u(width, height));
+        }
+        sf::State state = sf::State::Windowed;
+        if (fullscreen) {
+            state = sf::State::Fullscreen;
+        } else if (frameless) {
+            state = static_cast<sf::State>(2); // WindowedNoDecorations
+        }
         window_ = std::make_unique<sf::RenderWindow>(mode, title, state, settings);
 
         if (!window_ || !window_->isOpen()) {

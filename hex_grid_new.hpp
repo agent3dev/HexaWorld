@@ -25,7 +25,7 @@ struct TerrainTile {
 };
 
 // Plant stages
-enum PlantStage { SEED, SPROUT, PLANT };
+enum PlantStage { SEED, SPROUT, PLANT, CHARRED };
 
 // Plant class
 struct Plant {
@@ -47,6 +47,7 @@ public:
     std::map<std::pair<int, int>, std::pair<float, float>> hexagons;  // (q,r) -> (x,y)
     std::map<std::pair<int, int>, TerrainTile> terrainTiles;  // (q,r) -> tile
     std::map<std::pair<int, int>, Plant> plants;  // (q,r) -> plant
+    std::map<std::pair<int, int>, float> fire_timers;  // (q,r) -> time left burning
     std::vector<sf::Vector2f> hexagon_points;  // Cached points for size 1.0
     static const std::vector<std::pair<int, int>> directions;
 
@@ -218,6 +219,37 @@ struct Wolf : public HexObject {
 
     // Try to hunt a nearby hare or fox
     bool hunt(HexGrid& grid, std::vector<Hare>& hares, std::vector<Fox>& foxes);
+};
+
+// ============================================================================
+// SALMON - Fish that live in water
+// ============================================================================
+
+struct Salmon : public HexObject {
+    std::vector<TerrainType> allowed_terrains = {WATER}; // Only water
+    float energy = 1.0f;
+    sf::Color base_color = sf::Color(255, 100, 100); // Light red
+    bool is_dead = false;
+    float digestion_time = 0.0f;
+    float move_timer = 0.0f;
+    // Simple genome for now
+    float reproduction_threshold = 2.0f;
+    float pregnancy_timer = 0.0f;
+    bool is_pregnant = false;
+    bool ready_to_give_birth = false;
+    float speed = 1.0f;
+    sf::Vector2f current_pos;
+    sf::Vector2f target_pos;
+
+    Salmon(int q, int r) : HexObject(q, r) {}
+
+    void update_positions(HexGrid& grid);
+
+    // Get color (fixed for salmons)
+    sf::Color getColor() const { return base_color; }
+
+    // Update behavior: swim and reproduce
+    void update(HexGrid& grid, float delta_time, std::mt19937& rng);
 };
 
 // ============================================================================
