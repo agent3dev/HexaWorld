@@ -124,6 +124,7 @@ struct Fox;
 struct Hare : public HexObject {
     std::vector<TerrainType> allowed_terrains = {SOIL, WATER, ROCK}; // Always allow rocks
     float energy = 1.0f;
+    float thirst = 1.0f; // Hydration level (1.0 = fully hydrated, 0.0 = dehydrated)
     sf::Color base_color = sf::Color(210, 180, 140); // Khaki
     bool is_dead = false;
     float digestion_time = 0.0f;
@@ -160,6 +161,7 @@ struct Hare : public HexObject {
 struct Fox : public HexObject {
     std::vector<TerrainType> allowed_terrains = {SOIL, ROCK}; // No water
     float energy = 3.5f;
+    float thirst = 1.0f; // Hydration level (1.0 = fully hydrated, 0.0 = dehydrated)
     sf::Color base_color = sf::Color(255, 140, 0); // Orange
     bool is_dead = false;
     float digestion_time = 0.0f;
@@ -194,6 +196,7 @@ struct Fox : public HexObject {
 struct Wolf : public HexObject {
     std::vector<TerrainType> allowed_terrains = {SOIL, ROCK}; // No water
     float energy = 5.0f;
+    float thirst = 1.0f; // Hydration level (1.0 = fully hydrated, 0.0 = dehydrated)
     sf::Color base_color = sf::Color(64, 64, 64); // Dark grey
     bool is_dead = false;
     float digestion_time = 0.0f;

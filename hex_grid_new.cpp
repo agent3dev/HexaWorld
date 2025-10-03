@@ -410,6 +410,76 @@ void HexGrid::draw(SFMLRenderer& renderer, uint8_t r, uint8_t g, uint8_t b,
                     renderer.drawCircle(dot_x, dot_y, dot_radius, dot_r, dot_g, dot_b, alpha);
                 }
             }
+
+            // Create irregular overlap where soil meets water
+            if (type == SOIL) {
+                for (int edge = 0; edge < 6; ++edge) {
+                    auto [nq, nr] = get_neighbor_coords(q, r_coord, edge);
+                    auto neighbor_it = terrainTiles.find({nq, nr});
+
+                    if (neighbor_it != terrainTiles.end() && neighbor_it->second.type == WATER) {
+                        // Soil meets water - create irregular dirt invasion
+                        sf::Vector2f p1 = points[edge];
+                        sf::Vector2f p2 = points[(edge + 1) % 6];
+
+                        // Use edge-specific seed for consistent but varied patterns
+                        std::mt19937 edge_gen(q * 10000 + r_coord * 100 + edge);
+                        std::uniform_real_distribution<float> offset_dist(0.0f, 1.0f);
+                        std::uniform_real_distribution<float> size_dist(0.6f, 1.2f);
+                        std::uniform_real_distribution<float> extend_dist(0.2f, 0.6f);
+
+                        // Draw 5-8 irregular soil patches along this edge
+                        int num_patches = 5 + (edge_gen() % 4);
+                        for (int i = 0; i < num_patches; ++i) {
+                            // Position along the edge
+                            float t = offset_dist(edge_gen);
+                            float edge_x = p1.x + (p2.x - p1.x) * t;
+                            float edge_y = p1.y + (p2.y - p1.y) * t;
+
+                            // Calculate direction towards water (perpendicular to edge, outward)
+                            float dx = p2.x - p1.x;
+                            float dy = p2.y - p1.y;
+                            float edge_len = std::sqrt(dx * dx + dy * dy);
+                            float perp_x = -dy / edge_len; // Perpendicular direction
+                            float perp_y = dx / edge_len;
+
+                            // Extend into water tile
+                            float extension = extend_dist(edge_gen) * hex_size;
+                            float patch_x = edge_x + perp_x * extension;
+                            float patch_y = edge_y + perp_y * extension;
+
+                            // Draw soil patch
+                            float radius = (2.0f + offset_dist(edge_gen) * 3.0f) * size_dist(edge_gen);
+                            int color_var = (edge_gen() % 20) - 10;
+                            uint8_t patch_r = std::clamp((int)br + color_var, 0, 255);
+                            uint8_t patch_g = std::clamp((int)bg + color_var, 0, 255);
+                            uint8_t patch_b = std::clamp((int)bb + color_var, 0, 255);
+                            uint8_t alpha = 150 + (edge_gen() % 80);
+
+                            renderer.drawCircle(patch_x, patch_y, radius, patch_r, patch_g, patch_b, alpha);
+                        }
+                    }
+                }
+            }
+
+            // Smooth edges between tiles of the same terrain type
+            for (int edge = 0; edge < 6; ++edge) {
+                auto [nq, nr] = get_neighbor_coords(q, r_coord, edge);
+                auto neighbor_it = terrainTiles.find({nq, nr});
+
+                if (neighbor_it != terrainTiles.end() && neighbor_it->second.type == type) {
+                    // Same terrain type - draw blending edge
+                    sf::Vector2f p1 = points[edge];
+                    sf::Vector2f p2 = points[(edge + 1) % 6];
+
+                    // Use averaged color between this tile and center for smooth blend
+                    uint8_t blend_r = (br + base_r) / 2;
+                    uint8_t blend_g = (bg + base_g) / 2;
+                    uint8_t blend_b = (bb + base_b) / 2;
+
+                    renderer.drawLine(p1.x, p1.y, p2.x, p2.y, blend_r, blend_g, blend_b, 180, 2.0f);
+                }
+            }
         }
 
 
@@ -511,6 +581,15 @@ void Hare::update(HexGrid& grid, const std::vector<Fox>& foxes, float delta_time
     energy -= delta_time * 0.01f;
     energy = std::max(0.0f, energy);
 
+    // Thirst decay over time
+    thirst -= delta_time * 0.008f; // Slower than energy decay
+    thirst = std::max(0.0f, thirst);
+
+    // Drink if on water
+    if (grid.get_terrain_type(q, r) == WATER) {
+        thirst = std::min(1.0f, thirst + delta_time * 0.5f); // Quick rehydration
+    }
+
     // Digest
     digestion_time -= delta_time;
 
@@ -608,6 +687,17 @@ void Hare::update(HexGrid& grid, const std::vector<Fox>& foxes, float delta_time
                 if (safe_dirs.empty()) safe_dirs = valid_dirs; // If no safe, use all
             }
 
+            // Prefer directions with water if thirsty
+            std::vector<int> water_dirs;
+            if (thirst < 0.4f) { // Very thirsty
+                for (int dir : safe_dirs) {
+                    auto [nq, nr] = grid.get_neighbor_coords(q, r, dir);
+                    if (grid.get_terrain_type(nq, nr) == WATER) {
+                        water_dirs.push_back(dir);
+                    }
+                }
+            }
+
             // Prefer directions with edible plants (not seeds)
             std::vector<int> plant_dirs;
             for (int dir : safe_dirs) {
@@ -621,7 +711,10 @@ void Hare::update(HexGrid& grid, const std::vector<Fox>& foxes, float delta_time
             std::uniform_real_distribution<float> prob_dist(0.0f, 1.0f);
             float prob = prob_dist(rng);
             const std::vector<int>* chosen_dirs = &safe_dirs;
-            if (!plant_dirs.empty() && prob < genome.movement_aggression) {
+            // Prioritize water when very thirsty
+            if (!water_dirs.empty() && thirst < 0.3f) {
+                chosen_dirs = &water_dirs;
+            } else if (!plant_dirs.empty() && prob < genome.movement_aggression) {
                 chosen_dirs = &plant_dirs;
             }
             int chosen_dir = (*chosen_dirs)[gen() % chosen_dirs->size()];
@@ -673,6 +766,17 @@ void Hare::update(HexGrid& grid, const std::vector<Fox>& foxes, float delta_time
             it->second.nutrients = std::min(1.0f, it->second.nutrients + 0.2f);
         }
         // std::cout << "Hare died at (" << q << ", " << r << ")" << std::endl;
+    }
+
+    // Check for death by dehydration
+    if (thirst <= 0.0f && !is_dead) {
+        is_dead = true;
+        // Increase nutrients on soil
+        auto it = grid.terrainTiles.find({q, r});
+        if (it != grid.terrainTiles.end() && it->second.type == SOIL) {
+            it->second.nutrients = std::min(1.0f, it->second.nutrients + 0.2f);
+        }
+        std::cout << "Hare died of dehydration at (" << q << ", " << r << ")" << std::endl;
     }
 }
 
@@ -750,6 +854,15 @@ void Fox::update(HexGrid& grid, std::vector<Hare>& hares, const std::vector<Fox>
     // Debug: log energy occasionally
     if (gen() % 1000 == 0) std::cout << "Fox energy: " << energy << std::endl;
 
+    // Thirst decay over time
+    thirst -= delta_time * 0.01f; // Similar to energy decay
+    thirst = std::max(0.0f, thirst);
+
+    // Drink if on water edge (foxes don't swim but drink at edges)
+    if (grid.get_terrain_type(q, r) == WATER) {
+        thirst = std::min(1.0f, thirst + delta_time * 0.5f); // Quick rehydration
+    }
+
     // Digest
     digestion_time -= delta_time;
 
@@ -775,6 +888,12 @@ void Fox::update(HexGrid& grid, std::vector<Hare>& hares, const std::vector<Fox>
         }
     }
 
+    // Allow water when very thirsty
+    std::vector<TerrainType> current_allowed = allowed_terrains;
+    if (thirst < 0.3f) {
+        current_allowed.push_back(WATER);
+    }
+
     // Move if energy allows and cooldown passed
     move_timer += delta_time;
     if (move_timer >= 0.4f && energy > 0.0f) {  // Keep hunting even on low energy
@@ -784,7 +903,7 @@ void Fox::update(HexGrid& grid, std::vector<Hare>& hares, const std::vector<Fox>
             auto [nq, nr] = grid.get_neighbor_coords(q, r, dir);
             if (grid.has_hexagon(nq, nr)) {
                 TerrainType terr = grid.get_terrain_type(nq, nr);
-                if (std::find(allowed_terrains.begin(), allowed_terrains.end(), terr) != allowed_terrains.end()) {
+                if (std::find(current_allowed.begin(), current_allowed.end(), terr) != current_allowed.end()) {
                     valid_dirs.push_back(dir);
                 }
             }
@@ -836,9 +955,23 @@ void Fox::update(HexGrid& grid, std::vector<Hare>& hares, const std::vector<Fox>
                 }
             }
 
+            // Prefer directions with water if very thirsty
+            std::vector<int> water_dirs;
+            if (thirst < 0.3f) {
+                for (int dir : valid_dirs) {
+                    auto [nq, nr] = grid.get_neighbor_coords(q, r, dir);
+                    if (grid.get_terrain_type(nq, nr) == WATER) {
+                        water_dirs.push_back(dir);
+                    }
+                }
+            }
+
             std::uniform_real_distribution<float> prob_dist(0.0f, 1.0f);
             const std::vector<int>* chosen_dirs = &valid_dirs;
-            if (!hare_dirs.empty() && prob_dist(rng) < genome.hunting_aggression) {
+            // Prioritize water when extremely thirsty
+            if (!water_dirs.empty() && thirst < 0.2f) {
+                chosen_dirs = &water_dirs;
+            } else if (!hare_dirs.empty() && prob_dist(rng) < genome.hunting_aggression) {
                 chosen_dirs = &hare_dirs;
             }
             int chosen_dir = (*chosen_dirs)[gen() % chosen_dirs->size()];
@@ -858,6 +991,17 @@ void Fox::update(HexGrid& grid, std::vector<Hare>& hares, const std::vector<Fox>
             it->second.nutrients = std::min(1.0f, it->second.nutrients + 0.3f);
         }
         std::cout << "Fox died at (" << q << ", " << r << "), starved" << std::endl;
+    }
+
+    // Check for death by dehydration
+    if (thirst <= 0.0f && !is_dead) {
+        is_dead = true;
+        // Increase nutrients on soil
+        auto it = grid.terrainTiles.find({q, r});
+        if (it != grid.terrainTiles.end() && it->second.type == SOIL) {
+            it->second.nutrients = std::min(1.0f, it->second.nutrients + 0.3f);
+        }
+        std::cout << "Fox died of dehydration at (" << q << ", " << r << ")" << std::endl;
     }
 }
 
@@ -944,6 +1088,15 @@ void Wolf::update(HexGrid& grid, std::vector<Hare>& hares, std::vector<Fox>& fox
     energy -= delta_time * 0.01f;  // Slower decay
     energy = std::max(0.0f, energy);
 
+    // Thirst decay over time
+    thirst -= delta_time * 0.009f; // Slower than foxes
+    thirst = std::max(0.0f, thirst);
+
+    // Drink if on water edge (wolves don't swim but drink at edges)
+    if (grid.get_terrain_type(q, r) == WATER) {
+        thirst = std::min(1.0f, thirst + delta_time * 0.5f); // Quick rehydration
+    }
+
     // Digest
     digestion_time -= delta_time;
 
@@ -968,6 +1121,12 @@ void Wolf::update(HexGrid& grid, std::vector<Hare>& hares, std::vector<Fox>& fox
         }
     }
 
+    // Allow water when very thirsty
+    std::vector<TerrainType> current_allowed = allowed_terrains;
+    if (thirst < 0.3f) {
+        current_allowed.push_back(WATER);
+    }
+
     // Move if energy allows and cooldown passed
     move_timer += delta_time;
     if (move_timer >= 0.6f && energy > 2.0f) {  // Slower movement
@@ -977,7 +1136,7 @@ void Wolf::update(HexGrid& grid, std::vector<Hare>& hares, std::vector<Fox>& fox
             auto [nq, nr] = grid.get_neighbor_coords(q, r, dir);
             if (grid.has_hexagon(nq, nr)) {
                 TerrainType terr = grid.get_terrain_type(nq, nr);
-                if (std::find(allowed_terrains.begin(), allowed_terrains.end(), terr) != allowed_terrains.end()) {
+                if (std::find(current_allowed.begin(), current_allowed.end(), terr) != current_allowed.end()) {
                     valid_dirs.push_back(dir);
                 }
             }
@@ -1046,9 +1205,23 @@ void Wolf::update(HexGrid& grid, std::vector<Hare>& hares, std::vector<Fox>& fox
                 }
             }
 
+            // Prefer directions with water if very thirsty
+            std::vector<int> water_dirs;
+            if (thirst < 0.3f) {
+                for (int dir : valid_dirs) {
+                    auto [nq, nr] = grid.get_neighbor_coords(q, r, dir);
+                    if (grid.get_terrain_type(nq, nr) == WATER) {
+                        water_dirs.push_back(dir);
+                    }
+                }
+            }
+
             std::uniform_real_distribution<float> prob_dist(0.0f, 1.0f);
             const std::vector<int>* chosen_dirs = &valid_dirs;
-            if (!prey_dirs.empty() && prob_dist(rng) < genome.hunting_aggression) {
+            // Prioritize water when extremely thirsty
+            if (!water_dirs.empty() && thirst < 0.2f) {
+                chosen_dirs = &water_dirs;
+            } else if (!prey_dirs.empty() && prob_dist(rng) < genome.hunting_aggression) {
                 chosen_dirs = &prey_dirs;
             }
             int chosen_dir = (*chosen_dirs)[gen() % chosen_dirs->size()];
@@ -1067,6 +1240,17 @@ void Wolf::update(HexGrid& grid, std::vector<Hare>& hares, std::vector<Fox>& fox
             it->second.nutrients = std::min(1.0f, it->second.nutrients + 0.4f);
         }
         std::cout << "Wolf died at (" << q << ", " << r << ")" << std::endl;
+    }
+
+    // Check for death by dehydration
+    if (thirst <= 0.0f && !is_dead) {
+        is_dead = true;
+        // Increase nutrients
+        auto it = grid.terrainTiles.find({q, r});
+        if (it != grid.terrainTiles.end() && it->second.type == SOIL) {
+            it->second.nutrients = std::min(1.0f, it->second.nutrients + 0.4f);
+        }
+        std::cout << "Wolf died of dehydration at (" << q << ", " << r << ")" << std::endl;
     }
 }
 

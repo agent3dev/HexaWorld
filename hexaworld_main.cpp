@@ -763,8 +763,37 @@ int main() {
                    sf::Color color = salmon.getColor();
                    // Scale based on energy
                    float scale = std::max(0.8f, std::min(salmon.energy / 1.0f, 1.0f));
-                   // Draw as a circle
-                   renderer.drawCircle(salmon_x, salmon_y, 4.0f * scale, color.r, color.g, color.b, 255);
+
+                   // Draw fish body (elongated with circles)
+                   float body_length = 8.0f * scale;
+                   float body_width = 4.0f * scale;
+
+                   // Draw body as overlapping circles for smooth fish shape
+                   renderer.drawCircle(salmon_x - 2 * scale, salmon_y, body_width * 0.8f, color.r, color.g, color.b, 255); // Back
+                   renderer.drawCircle(salmon_x, salmon_y, body_width, color.r, color.g, color.b, 255); // Middle (widest)
+                   renderer.drawCircle(salmon_x + 2 * scale, salmon_y, body_width * 0.8f, color.r, color.g, color.b, 255); // Front
+
+                   // Draw tail fin (triangle)
+                   std::vector<std::pair<float, float>> tail = {
+                       {salmon_x - 4 * scale, salmon_y}, // Tip
+                       {salmon_x - 2 * scale, salmon_y - 3 * scale}, // Top
+                       {salmon_x - 2 * scale, salmon_y + 3 * scale}  // Bottom
+                   };
+                   uint8_t tail_r = std::max(0, (int)color.r - 30);
+                   uint8_t tail_g = std::max(0, (int)color.g - 30);
+                   uint8_t tail_b = std::max(0, (int)color.b - 30);
+                   renderer.drawConvexShape(tail, tail_r, tail_g, tail_b, 255);
+
+                   // Draw small dorsal fin on top
+                   std::vector<std::pair<float, float>> dorsal_fin = {
+                       {salmon_x - 1 * scale, salmon_y - body_width * 0.8f}, // Base left
+                       {salmon_x + 1 * scale, salmon_y - body_width * 0.8f}, // Base right
+                       {salmon_x, salmon_y - body_width * 1.3f}  // Tip
+                   };
+                   renderer.drawConvexShape(dorsal_fin, tail_r, tail_g, tail_b, 255);
+
+                   // Draw eye
+                   renderer.drawCircle(salmon_x + 2 * scale, salmon_y - 1 * scale, 0.8f * scale, 0, 0, 0, 255);
                }
 
                // Draw foxes
