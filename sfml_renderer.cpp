@@ -33,6 +33,7 @@ SFMLRenderer::SFMLRenderer(int width, int height, const std::string& title, bool
         window_->setPosition(sf::Vector2i(0, 0));
         window_->setVerticalSyncEnabled(true);
         loadFont();
+        precomputeSprites();
     } catch (const std::exception& e) {
         std::cerr << "ERROR: Exception creating SFML window: " << e.what() << std::endl;
         throw;
@@ -50,9 +51,104 @@ void SFMLRenderer::loadFont() {
     // Try to load a monospace font
     if (!font_->openFromFile("/usr/share/fonts/TTF/DejaVuSansMono.ttf")) {
         if (!font_->openFromFile("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf")) {
-            std::cerr << "Warning: Could not load default font" << std::endl;
+            std::cerr << "Warning: Could not load DejaVuSansMono font, text rendering may not work" << std::endl;
         }
     }
+}
+
+void SFMLRenderer::precomputeSprites() {
+    // Precompute hare sprite
+    hare_texture_.clear(sf::Color::Transparent);
+
+    float scale = 1.0f;
+    float head_size = 4.0f * scale;
+    float ear_offset_x = 2.0f * scale;
+    float ear_offset_y = -3.0f * scale;
+    float ear_width = 1.5f * scale;
+    float ear_height = 3.0f * scale;
+    float eye_offset = 1.5f * scale;
+    float eye_size = 0.8f * scale;
+
+    // Head
+    sf::CircleShape head(head_size);
+    head.setFillColor(sf::Color::White);
+    head.setPosition(sf::Vector2f(32 - head_size, 32 - head_size));
+    hare_texture_.draw(head);
+
+    // Left ear
+    sf::RectangleShape ear(sf::Vector2f(ear_width, ear_height));
+    ear.setFillColor(sf::Color::White);
+    ear.setPosition(sf::Vector2f(32 - ear_offset_x - ear_width/2, 32 - ear_offset_y - ear_height/2));
+    hare_texture_.draw(ear);
+
+    // Right ear
+    ear.setPosition(sf::Vector2f(32 + ear_offset_x - ear_width/2, 32 - ear_offset_y - ear_height/2));
+    hare_texture_.draw(ear);
+
+    // Left eye
+    sf::CircleShape eye(eye_size);
+    eye.setFillColor(sf::Color::Black);
+    eye.setPosition(sf::Vector2f(32 - eye_offset - eye_size, 32 - eye_offset - eye_size));
+    hare_texture_.draw(eye);
+
+    // Right eye
+    eye.setPosition(sf::Vector2f(32 + eye_offset - eye_size, 32 - eye_offset - eye_size));
+    hare_texture_.draw(eye);
+
+    hare_texture_.display();
+    hare_sprite_ = std::make_unique<sf::Sprite>(hare_texture_.getTexture());
+    hare_sprite_->setOrigin(sf::Vector2f(32, 32));
+
+    // Precompute fox sprite
+    fox_texture_.clear(sf::Color::Transparent);
+
+    float fox_scale = 0.8f;
+    float fox_x = 32.0f;
+    float fox_y = 32.0f;
+
+    // Head triangle
+    sf::ConvexShape fox_head(3);
+    fox_head.setPoint(0, sf::Vector2f(fox_x, fox_y + 9 * fox_scale));
+    fox_head.setPoint(1, sf::Vector2f(fox_x - 8 * fox_scale, fox_y - 4.5f * fox_scale));
+    fox_head.setPoint(2, sf::Vector2f(fox_x + 8 * fox_scale, fox_y - 4.5f * fox_scale));
+    fox_head.setFillColor(sf::Color::White);
+    fox_texture_.draw(fox_head);
+
+    // Left ear
+    sf::ConvexShape left_ear(3);
+    left_ear.setPoint(0, sf::Vector2f(fox_x - 8 * fox_scale, fox_y - 4.5f * fox_scale));
+    left_ear.setPoint(1, sf::Vector2f(fox_x - 4.5f * fox_scale, fox_y - 4.5f * fox_scale));
+    left_ear.setPoint(2, sf::Vector2f(fox_x - 5.5f * fox_scale, fox_y - 9 * fox_scale));
+    left_ear.setFillColor(sf::Color::White);
+    fox_texture_.draw(left_ear);
+
+    // Right ear
+    sf::ConvexShape right_ear(3);
+    right_ear.setPoint(0, sf::Vector2f(fox_x + 4.5f * fox_scale, fox_y - 4.5f * fox_scale));
+    right_ear.setPoint(1, sf::Vector2f(fox_x + 8 * fox_scale, fox_y - 4.5f * fox_scale));
+    right_ear.setPoint(2, sf::Vector2f(fox_x + 5.5f * fox_scale, fox_y - 9 * fox_scale));
+    right_ear.setFillColor(sf::Color::White);
+    fox_texture_.draw(right_ear);
+
+    // Eyes
+    sf::CircleShape fox_eye(1.2f * fox_scale);
+    fox_eye.setFillColor(sf::Color::Black);
+    fox_eye.setPosition(sf::Vector2f(fox_x - 2.5f * fox_scale - 1.2f * fox_scale, fox_y + 2 * fox_scale - 1.2f * fox_scale));
+    fox_texture_.draw(fox_eye);
+    fox_eye.setPosition(sf::Vector2f(fox_x + 2.5f * fox_scale - 1.2f * fox_scale, fox_y + 2 * fox_scale - 1.2f * fox_scale));
+    fox_texture_.draw(fox_eye);
+
+    fox_texture_.display();
+    fox_sprite_ = std::make_unique<sf::Sprite>(fox_texture_.getTexture());
+    fox_sprite_->setOrigin(sf::Vector2f(32, 32));
+}
+
+void SFMLRenderer::drawSprite(float x, float y, sf::Color color, sf::Sprite& sprite, float scale) {
+    if (!window_) return;
+    sprite.setColor(color);
+    sprite.setScale(sf::Vector2f(scale, scale));
+    sprite.setPosition(sf::Vector2f(x, y));
+    window_->draw(sprite);
 }
 
 bool SFMLRenderer::isOpen() const {

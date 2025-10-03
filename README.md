@@ -72,7 +72,11 @@ The hexagonal grid starts with a center hexagon and expands outward:
 
 ### Files
 
-- `hex_grid_new.hpp/cpp`: HexGrid, Hare, Fox classes with simulation logic
+- `hex_grid_new.hpp/cpp`: HexGrid class with simulation logic
+- `animals/hare.hpp/cpp`: Hare class
+- `animals/fox.hpp/cpp`: Fox class
+- `animals/wolf.hpp/cpp`: Wolf class
+- `animals/salmon.hpp/cpp`: Salmon class
 - `sfml_renderer.hpp/cpp`: SFML-based rendering with antialiasing
 - `ga.hpp`: Genetic algorithm structures for evolution
 - `hexaworld_main.cpp`: Main simulation loop and initialization

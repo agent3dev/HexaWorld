@@ -23,6 +23,10 @@ set(SOURCES
     hexaworld_main.cpp
     hex_grid_new.cpp
     sfml_renderer.cpp
+    animals/hare.cpp
+    animals/fox.cpp
+    animals/wolf.cpp
+    animals/salmon.cpp
 )
 
 # Create executable

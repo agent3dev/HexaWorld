@@ -1,5 +1,9 @@
 #include "hex_grid_new.hpp"
 #include "sfml_renderer.hpp"
+#include "animals/hare.hpp"
+#include "animals/fox.hpp"
+#include "animals/wolf.hpp"
+#include "animals/salmon.hpp"
 #include "constants.hpp"
 #include <iostream>
 #include <thread>
@@ -38,7 +42,7 @@ bool get_maximized() {
         std::string val(env);
         return !(val == "0" || val == "false");
     }
-    return true; // Default to maximized
+    return false; // Default to windowed
 }
 auto [seed_val, source] = get_seed();
 std::mt19937 gen(seed_val); // Fixed seed for repeatable simulation
@@ -64,6 +68,11 @@ int main() {
 
         // Create hex grid
         HexGrid hexGrid(HEX_SIZE);
+
+        // Set max grid distance based on vertical screen space
+        float hex_vertical_spacing = HEX_SIZE * SQRT3;
+        int max_dist = static_cast<int>(center_y / hex_vertical_spacing);
+        hexGrid.max_grid_distance = max_dist;
 
         // Add center hexagon
         hexGrid.add_hexagon(0, 0);
@@ -199,29 +208,43 @@ int main() {
         std::vector<Wolf> wolves;
         std::vector<std::pair<int, int>> plant_coords;
         for (const auto& [coord, plant] : hexGrid.plants) {
-            plant_coords.push_back(coord);
+            if (plant.stage == PLANT) {
+                plant_coords.push_back(coord);
+            }
         }
-        std::shuffle(plant_coords.begin(), plant_coords.end(), gen);
+
         size_t grid_size = hexGrid.hexagons.size();
-        size_t num_hares = std::max<size_t>(10, grid_size / 500);
-        num_hares = std::min(num_hares, plant_coords.size());
-        for (size_t i = 0; i < num_hares; ++i) {
-            auto [q, r] = plant_coords[i];
-            hares.emplace_back(q, r);
-            // Randomize genome for initial population
-            std::uniform_real_distribution<float> thresh_dist(1.0f, 2.0f);
-            std::uniform_real_distribution<float> aggression_dist(0.0f, 1.0f);
-            std::uniform_real_distribution<float> weight_dist(0.5f, 1.5f);
-            std::uniform_real_distribution<float> fear_dist(0.0f, 1.0f);
-            std::uniform_real_distribution<float> efficiency_dist(0.5f, 1.5f);
-            hares.back().genome.reproduction_threshold = thresh_dist(gen);
-            hares.back().genome.movement_aggression = aggression_dist(gen);
-            hares.back().genome.weight = weight_dist(gen);
-            hares.back().genome.weight = weight_dist(gen);
-            hares.back().genome.fear = fear_dist(gen);
-            hares.back().genome.movement_efficiency = efficiency_dist(gen);
-            hares.back().update_speed();
-         }
+        // Place hares at the 6 corners of the map
+        std::vector<std::pair<int, int>> corner_positions = {
+            {hexGrid.max_grid_distance, 0},
+            {hexGrid.max_grid_distance, -hexGrid.max_grid_distance},
+            {0, -hexGrid.max_grid_distance},
+            {-hexGrid.max_grid_distance, 0},
+            {-hexGrid.max_grid_distance, hexGrid.max_grid_distance},
+            {0, hexGrid.max_grid_distance}
+        };
+        for (auto [q, r] : corner_positions) {
+            if (hexGrid.has_hexagon(q, r) && hexGrid.get_terrain_type(q, r) == SOIL) {
+                hares.emplace_back(q, r);
+                // Randomize genome for initial population
+                std::uniform_real_distribution<float> thresh_dist(1.0f, 2.0f);
+                std::uniform_real_distribution<float> aggression_dist(0.0f, 1.0f);
+                std::uniform_real_distribution<float> weight_dist(0.5f, 1.5f);
+                std::uniform_real_distribution<float> fear_dist(0.0f, 1.0f);
+                std::uniform_real_distribution<float> efficiency_dist(0.5f, 1.5f);
+                hares.back().genome.reproduction_threshold = thresh_dist(gen);
+                hares.back().genome.movement_aggression = aggression_dist(gen);
+                hares.back().genome.weight = weight_dist(gen);
+                hares.back().genome.fear = fear_dist(gen);
+                hares.back().genome.movement_efficiency = efficiency_dist(gen);
+                hares.back().update_speed();
+                // Set position to avoid flying from center
+                auto [x, y] = hexGrid.axial_to_pixel(q, r);
+                hares.back().current_pos = sf::Vector2f(x, y);
+                hares.back().target_pos = sf::Vector2f(x, y);
+                hexGrid.hare_positions.insert({q, r});
+            }
+        }
 
          // Create salmons on water tiles
          std::vector<std::pair<int, int>> water_coords;
@@ -233,10 +256,14 @@ int main() {
          std::shuffle(water_coords.begin(), water_coords.end(), gen);
          size_t num_salmons = std::max<size_t>(5, grid_size / 2000);
          num_salmons = std::min(num_salmons, water_coords.size());
-         for (size_t i = 0; i < num_salmons; ++i) {
-             auto [q, r] = water_coords[i];
-             salmons.emplace_back(q, r);
-         }
+          for (size_t i = 0; i < num_salmons; ++i) {
+              auto [q, r] = water_coords[i];
+              salmons.emplace_back(q, r);
+              // Set position to avoid flying from center
+              auto [x, y] = hexGrid.axial_to_pixel(q, r);
+              salmons.back().current_pos = sf::Vector2f(x, y);
+              salmons.back().target_pos = sf::Vector2f(x, y);
+          }
 
          // Create foxes on soil tiles
         std::vector<Fox> foxes;
@@ -253,16 +280,20 @@ int main() {
             auto [q, r] = fox_soil_coords[i];
             foxes.emplace_back(q, r);
             // Randomize genome for initial population
-            std::uniform_real_distribution<float> thresh_dist(2.0f, 4.0f);
+            std::uniform_real_distribution<float> thresh_dist(2.5f, 4.5f);
             std::uniform_real_distribution<float> aggression_dist(0.0f, 1.0f);
             std::uniform_real_distribution<float> weight_dist(0.5f, 1.5f);
             std::uniform_real_distribution<float> efficiency_dist(0.5f, 1.5f);
             foxes.back().genome.reproduction_threshold = thresh_dist(gen);
             foxes.back().genome.hunting_aggression = aggression_dist(gen);
             foxes.back().genome.weight = weight_dist(gen);
-            foxes.back().genome.movement_efficiency = efficiency_dist(gen);
-             foxes.back().update_speed();
-         }
+             foxes.back().genome.movement_efficiency = efficiency_dist(gen);
+              foxes.back().update_speed();
+              // Set position to avoid flying from center
+              auto [x, y] = hexGrid.axial_to_pixel(q, r);
+              foxes.back().current_pos = sf::Vector2f(x, y);
+              foxes.back().target_pos = sf::Vector2f(x, y);
+          }
 
         // Create wolves on soil tiles
         std::vector<std::pair<int, int>> wolf_soil_coords;
@@ -285,9 +316,13 @@ int main() {
             wolves.back().genome.reproduction_threshold = thresh_dist(gen);
             wolves.back().genome.hunting_aggression = aggression_dist(gen);
             wolves.back().genome.weight = weight_dist(gen);
-            wolves.back().genome.movement_efficiency = efficiency_dist(gen);
-            wolves.back().update_speed();
-        }
+             wolves.back().genome.movement_efficiency = efficiency_dist(gen);
+             wolves.back().update_speed();
+             // Set position to avoid flying from center
+             auto [x, y] = hexGrid.axial_to_pixel(q, r);
+             wolves.back().current_pos = sf::Vector2f(x, y);
+             wolves.back().target_pos = sf::Vector2f(x, y);
+         }
 
         // Initial brightness center on hares
         float brightness_center_q = 0, brightness_center_r = 0;
@@ -488,73 +523,105 @@ int main() {
 
              // Animals die in fire
              for (auto& hare : hares) {
-                 if (!hare.is_dead && hexGrid.fire_timers.find({hare.q, hare.r}) != hexGrid.fire_timers.end()) {
-                     hare.is_dead = true;
-                 }
+                  if (!hare.is_dead && hexGrid.fire_timers.find({hare.q, hare.r}) != hexGrid.fire_timers.end()) {
+                      hare.is_dead = true;
+                      std::cout << "Hare died at (" << hare.q << ", " << hare.r << "), burned" << std::endl;
+                  }
              }
              for (auto& salmon : salmons) {
-                 if (!salmon.is_dead && hexGrid.fire_timers.find({salmon.q, salmon.r}) != hexGrid.fire_timers.end()) {
-                     salmon.is_dead = true;
-                 }
+                  if (!salmon.is_dead && hexGrid.fire_timers.find({salmon.q, salmon.r}) != hexGrid.fire_timers.end()) {
+                      salmon.is_dead = true;
+                      std::cout << "Salmon died at (" << salmon.q << ", " << salmon.r << "), burned" << std::endl;
+                  }
              }
              for (auto& fox : foxes) {
-                 if (!fox.is_dead && hexGrid.fire_timers.find({fox.q, fox.r}) != hexGrid.fire_timers.end()) {
-                     fox.is_dead = true;
-                 }
+                  if (!fox.is_dead && hexGrid.fire_timers.find({fox.q, fox.r}) != hexGrid.fire_timers.end()) {
+                      fox.is_dead = true;
+                      std::cout << "Fox died at (" << fox.q << ", " << fox.r << "), burned" << std::endl;
+                  }
              }
              for (auto& wolf : wolves) {
-                 if (!wolf.is_dead && hexGrid.fire_timers.find({wolf.q, wolf.r}) != hexGrid.fire_timers.end()) {
-                     wolf.is_dead = true;
-                 }
+                  if (!wolf.is_dead && hexGrid.fire_timers.find({wolf.q, wolf.r}) != hexGrid.fire_timers.end()) {
+                      wolf.is_dead = true;
+                      std::cout << "Wolf died at (" << wolf.q << ", " << wolf.r << "), burned" << std::endl;
+                  }
              }
 
-             // Handle hare birth
-             for (auto& hare : hares) {
-                 if (hare.ready_to_give_birth) {
+              // Handle hare birth
+              for (auto& hare : hares) {
+                  if (hare.ready_to_give_birth) {
+                      // Find a free neighbor for birth
+                      std::vector<std::pair<int, int>> free_neighbors;
+                      for (int dir = 0; dir < 6; ++dir) {
+                          auto [nq, nr] = hexGrid.get_neighbor_coords(hare.q, hare.r, dir);
+                          if (hexGrid.has_hexagon(nq, nr) && hexGrid.hare_positions.find({nq, nr}) == hexGrid.hare_positions.end()) {
+                              free_neighbors.push_back({nq, nr});
+                          }
+                      }
+                      if (!free_neighbors.empty()) {
+                          std::uniform_int_distribution<> dis(0, free_neighbors.size() - 1);
+                          auto [bq, br] = free_neighbors[dis(gen)];
+                          hares.push_back(Hare(bq, br));
+                          hares.back().genome = hare.genome.mutate(gen);
+                          hares.back().energy = 0.5f; // Lower starting energy for evolutionary pressure
+                          // Set position
+                          auto [x, y] = hexGrid.axial_to_pixel(bq, br);
+                          hares.back().current_pos = sf::Vector2f(x, y);
+                          hares.back().target_pos = sf::Vector2f(x, y);
+                          hexGrid.hare_positions.insert({bq, br});
+                          hare.ready_to_give_birth = false;
+                          if (enableHareLogging) {
+                              // std::cout << "Hare gave birth at (" << bq << ", " << br << ")" << std::endl;
+                          }
+                      }
+                  }
+              }
+
+              // Handle salmon birth
+              for (auto& salmon : salmons) {
+                  if (salmon.ready_to_give_birth) {
+                      // Create offspring at same position
+                      salmons.push_back(Salmon(salmon.q, salmon.r));
+                      salmons.back().energy = 0.5f;
+                      // Set position to avoid flying from center
+                      auto [x, y] = hexGrid.axial_to_pixel(salmons.back().q, salmons.back().r);
+                      salmons.back().current_pos = sf::Vector2f(x, y);
+                      salmons.back().target_pos = sf::Vector2f(x, y);
+                      salmon.ready_to_give_birth = false;
+                  }
+              }
+
+             // Handle fox birth
+             for (auto& fox : foxes) {
+                 if (fox.ready_to_give_birth) {
                      // Create offspring at same position
-                     hares.push_back(Hare(hare.q, hare.r));
-                     hares.back().genome = hare.genome.mutate(gen);
-                     hares.back().energy = 0.5f; // Lower starting energy for evolutionary pressure
-                     hare.ready_to_give_birth = false;
-                     if (enableHareLogging) {
-                         // std::cout << "Hare gave birth at (" << hare.q << ", " << hare.r << ")" << std::endl;
-                     }
+                     foxes.push_back(Fox(fox.q, fox.r));
+                     foxes.back().genome = fox.genome.mutate(gen);
+                     foxes.back().energy = 1.5f; // Starting energy for offspring
+                     // Set position to avoid flying from center
+                     auto [x, y] = hexGrid.axial_to_pixel(foxes.back().q, foxes.back().r);
+                     foxes.back().current_pos = sf::Vector2f(x, y);
+                     foxes.back().target_pos = sf::Vector2f(x, y);
+                     fox.ready_to_give_birth = false;
+                     std::cout << "Fox gave birth at (" << fox.q << ", " << fox.r << ")" << std::endl;
                  }
              }
 
-             // Handle salmon birth
-             for (auto& salmon : salmons) {
-                 if (salmon.ready_to_give_birth) {
+             // Handle wolf birth
+             for (auto& wolf : wolves) {
+                 if (wolf.ready_to_give_birth) {
                      // Create offspring at same position
-                     salmons.push_back(Salmon(salmon.q, salmon.r));
-                     salmons.back().energy = 0.5f;
-                     salmon.ready_to_give_birth = false;
+                     wolves.push_back(Wolf(wolf.q, wolf.r));
+                     wolves.back().genome = wolf.genome.mutate(gen);
+                     wolves.back().energy = 4.0f; // Starting energy for offspring
+                     // Set position to avoid flying from center
+                     auto [x, y] = hexGrid.axial_to_pixel(wolves.back().q, wolves.back().r);
+                     wolves.back().current_pos = sf::Vector2f(x, y);
+                     wolves.back().target_pos = sf::Vector2f(x, y);
+                     wolf.ready_to_give_birth = false;
+                     std::cout << "Wolf gave birth at (" << wolf.q << ", " << wolf.r << ")" << std::endl;
                  }
              }
-
-            // Handle fox birth
-            for (auto& fox : foxes) {
-                if (fox.ready_to_give_birth) {
-                    // Create offspring at same position
-                    foxes.push_back(Fox(fox.q, fox.r));
-                    foxes.back().genome = fox.genome.mutate(gen);
-                    foxes.back().energy = 1.5f; // Starting energy for offspring
-                    fox.ready_to_give_birth = false;
-                    std::cout << "Fox gave birth at (" << fox.q << ", " << fox.r << ")" << std::endl;
-                }
-            }
-
-            // Handle wolf birth
-            for (auto& wolf : wolves) {
-                if (wolf.ready_to_give_birth) {
-                    // Create offspring at same position
-                    wolves.push_back(Wolf(wolf.q, wolf.r));
-                    wolves.back().genome = wolf.genome.mutate(gen);
-                    wolves.back().energy = 4.0f; // Starting energy for offspring
-                    wolf.ready_to_give_birth = false;
-                    std::cout << "Wolf gave birth at (" << wolf.q << ", " << wolf.r << ")" << std::endl;
-                }
-            }
 
              // Update population graph
              graph_timer += dt;
@@ -581,10 +648,15 @@ int main() {
                  log_timer = 0.0f;
              }
 
-             // Remove dead hares
-             hares.erase(std::remove_if(hares.begin(), hares.end(), [](const Hare& h) {
-                 return h.is_dead;
-             }), hares.end());
+              // Remove dead hares
+              for (const auto& h : hares) {
+                  if (h.is_dead) {
+                      hexGrid.hare_positions.erase({h.q, h.r});
+                  }
+              }
+              hares.erase(std::remove_if(hares.begin(), hares.end(), [](const Hare& h) {
+                  return h.is_dead;
+              }), hares.end());
 
              // Remove dead salmons
              salmons.erase(std::remove_if(salmons.begin(), salmons.end(), [](const Salmon& s) {
@@ -749,12 +821,8 @@ int main() {
                    float ear_offset_x = 2.0f * scale;
                    float ear_offset_y = 4.0f * scale;
                    float eye_offset = 1.5f * scale;
-                  // Draw hare as simple face: head circle, ears, eyes
-                  renderer.drawCircle(hare_x, hare_y, head_size, color.r, color.g, color.b, 255); // Head
-                   renderer.drawRectangle(hare_x - ear_offset_x - ear_width/2, hare_y - ear_offset_y - ear_height/2, ear_width, ear_height, std::max(0, (int)color.r - 20), std::max(0, (int)color.g - 20), std::max(0, (int)color.b - 20), 255); // Left ear
-                   renderer.drawRectangle(hare_x + ear_offset_x - ear_width/2, hare_y - ear_offset_y - ear_height/2, ear_width, ear_height, std::max(0, (int)color.r - 20), std::max(0, (int)color.g - 20), std::max(0, (int)color.b - 20), 255); // Right ear
-                  renderer.drawCircle(hare_x - eye_offset, hare_y - eye_offset, eye_size, 0, 0, 0, 255); // Left eye
-                  renderer.drawCircle(hare_x + eye_offset, hare_y - eye_offset, eye_size, 0, 0, 0, 255); // Right eye
+                   // Draw hare as precomputed sprite
+                   renderer.drawSprite(hare_x, hare_y, color, renderer.getHareSprite(), scale);
               }
 
                // Draw salmons
@@ -804,29 +872,8 @@ int main() {
                   sf::Color color = fox.getColor();
                   // Scale based on energy (newborns start smaller but visible)
                   float scale = std::max(0.9f, std::min(fox.energy / 3.5f, 1.0f));
-                  // Draw fox as triangle head with ears
-                   std::vector<std::pair<float, float>> head_points = {
-                       {fox_x, fox_y + 9 * scale}, // Bottom
-                       {fox_x - 8 * scale, fox_y - 4.5f * scale}, // Top left
-                       {fox_x + 8 * scale, fox_y - 4.5f * scale}  // Top right
-                   };
-                  renderer.drawConvexShape(head_points, color.r, color.g, color.b, 255);
-                  // Ears
-                   std::vector<std::pair<float, float>> left_ear = {
-                       {fox_x - 8 * scale, fox_y - 4.5f * scale}, // Base left
-                       {fox_x - 4.5f * scale, fox_y - 4.5f * scale}, // Base right
-                       {fox_x - 5.5f * scale, fox_y - 9 * scale}  // Tip
-                   };
-                  renderer.drawConvexShape(left_ear, color.r, color.g, color.b, 255);
-                   std::vector<std::pair<float, float>> right_ear = {
-                       {fox_x + 4.5f * scale, fox_y - 4.5f * scale}, // Base left
-                       {fox_x + 8 * scale, fox_y - 4.5f * scale}, // Base right
-                       {fox_x + 5.5f * scale, fox_y - 9 * scale}  // Tip
-                   };
-                  renderer.drawConvexShape(right_ear, color.r, color.g, color.b, 255);
-                   // Eyes
-                   renderer.drawCircle(fox_x - 2.5f * scale, fox_y + 2 * scale, 1.2f * scale, 255, 255, 255, 255); // Left eye
-                   renderer.drawCircle(fox_x + 2.5f * scale, fox_y + 2 * scale, 1.2f * scale, 255, 255, 255, 255); // Right eye
+                   // Draw fox as precomputed sprite
+                   renderer.drawSprite(fox_x, fox_y, color, renderer.getFoxSprite(), scale);
               }
 
                // Draw wolves

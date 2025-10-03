@@ -66,6 +66,11 @@ public:
     sf::RenderWindow* getWindow() const;
     std::vector<sf::Vector2f> calculateHexagonPoints(float center_x, float center_y, float side_length) const;
 
+    // Sprite access
+    sf::Sprite& getHareSprite() { return *hare_sprite_; }
+    sf::Sprite& getFoxSprite() { return *fox_sprite_; }
+    void drawSprite(float x, float y, sf::Color color, sf::Sprite& sprite, float scale = 1.0f);
+
 private:
     std::unique_ptr<sf::RenderWindow> window_;
     std::unique_ptr<sf::Font> font_;
@@ -74,6 +79,13 @@ private:
     sf::Keyboard::Key lastKey_;
     bool shouldClose_;
 
+    // Precomputed sprites
+    sf::RenderTexture hare_texture_{sf::Vector2u(64, 64)};
+    std::unique_ptr<sf::Sprite> hare_sprite_;
+    sf::RenderTexture fox_texture_{sf::Vector2u(64, 64)};
+    std::unique_ptr<sf::Sprite> fox_sprite_;
+
     void loadFont();
+    void precomputeSprites();
 };
 
