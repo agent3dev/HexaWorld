@@ -122,7 +122,7 @@ struct Fox;
 // ============================================================================
 
 struct Hare : public HexObject {
-    std::vector<TerrainType> allowed_terrains = {SOIL, WATER, ROCK}; // Always allow rocks
+    std::vector<TerrainType> allowed_terrains = {SOIL, ROCK}; // Allow rocks, water only when thirsty
     float energy = 1.0f;
     float thirst = 1.0f; // Hydration level (1.0 = fully hydrated, 0.0 = dehydrated)
     sf::Color base_color = sf::Color(210, 180, 140); // Khaki

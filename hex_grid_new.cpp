@@ -593,14 +593,14 @@ void Hare::update(HexGrid& grid, const std::vector<Fox>& foxes, float delta_time
     }
 
     // Small time-based energy decay
-    energy -= delta_time * 0.01f;
+    energy -= delta_time * 0.008f;  // Slower decay for longer lifespan
     energy = std::max(0.0f, energy);
 
     // Thirst decay over time
-    thirst -= delta_time * 0.008f; // Slower than energy decay
+    thirst -= delta_time * 0.008f; // Slower decay for longer lifespan
     thirst = std::max(0.0f, thirst);
 
-    // Drink if on water
+    // Drink if on water edge (foxes don't swim but drink at edges)
     if (grid.get_terrain_type(q, r) == WATER) {
         thirst = std::min(1.0f, thirst + delta_time * 0.5f); // Quick rehydration
     }
@@ -615,271 +615,6 @@ void Hare::update(HexGrid& grid, const std::vector<Fox>& foxes, float delta_time
             is_eating = true;
             eating_timer = 2.0f;
         }
-    }
-
-    // Poop after digestion
-    if (digestion_time <= 0.0f && digestion_time > -1.0f) {  // Trigger once
-        auto it = grid.terrainTiles.find({q, r});
-        if (it != grid.terrainTiles.end() && it->second.type == SOIL) {
-            grid.plants.insert({{q, r}, Plant(q, r, SEED, it->second.nutrients)});
-        }
-        digestion_time = -1.0f;  // Prevent repeat
-    }
-
-    // Update allowed terrains: can go to rocks; fearless can go to water
-    allowed_terrains = {SOIL, ROCK};
-    if (genome.fear < 0.5f) {
-        allowed_terrains.push_back(WATER);
-    }
-
-    // Burrowing logic
-    if (genome.can_burrow && grid.get_terrain_type(q, r) == SOIL) {
-        bool foxes_nearby = false;
-        for (const auto& fox : foxes) {
-            if (!fox.is_dead) {
-                int dq = fox.q - q;
-                int dr = fox.r - r;
-                int dist = (std::abs(dq) + std::abs(dr) + std::abs(dq + dr)) / 2;
-                if (dist <= 2) {
-                    foxes_nearby = true;
-                    break;
-                }
-            }
-        }
-        if (foxes_nearby || energy < 0.3f) {
-            is_burrowing = true;
-        } else if (!foxes_nearby && energy > 0.5f) {
-            is_burrowing = false;
-        }
-    } else {
-        is_burrowing = false;
-    }
-
-    // Move if energy allows and cooldown passed
-    move_timer += delta_time;
-    if (move_timer >= 0.5f && energy > 0.2f) {
-        // Find valid directions
-        std::vector<int> valid_dirs;
-        for (int dir = 0; dir < 6; ++dir) {
-            auto [nq, nr] = grid.get_neighbor_coords(q, r, dir);
-            if (grid.has_hexagon(nq, nr)) {
-                TerrainType terr = grid.get_terrain_type(nq, nr);
-                if (std::find(allowed_terrains.begin(), allowed_terrains.end(), terr) != allowed_terrains.end()) {
-                    valid_dirs.push_back(dir);
-                }
-            }
-        }
-
-        if (!valid_dirs.empty()) {
-            // Avoid fire (always)
-            std::vector<int> no_fire_dirs;
-            for (int dir : valid_dirs) {
-                auto [nq, nr] = grid.get_neighbor_coords(q, r, dir);
-                if (grid.fire_timers.find({nq, nr}) == grid.fire_timers.end()) {
-                    no_fire_dirs.push_back(dir);
-                }
-            }
-            if (!no_fire_dirs.empty()) {
-                valid_dirs = no_fire_dirs;
-            }
-
-            // Fear: avoid directions with visible foxes
-            std::vector<int> safe_dirs = valid_dirs;
-            if (genome.fear > 0.7f) {
-                safe_dirs.clear();
-                for (int dir : valid_dirs) {
-                    auto [nq, nr] = grid.get_neighbor_coords(q, r, dir);
-                    bool has_visible_fox = false;
-                    for (const auto& fox : foxes) {
-                        if (!fox.is_dead && fox.q == nq && fox.r == nr) {
-                            TerrainType terr = grid.get_terrain_type(nq, nr);
-                            float visibility = HexGrid::calculate_visibility(fox.getColor(), terr);
-                            if (visibility > 0.3f) {
-                                has_visible_fox = true;
-                                break;
-                            }
-                        }
-                    }
-                    if (!has_visible_fox) safe_dirs.push_back(dir);
-                }
-                if (safe_dirs.empty()) safe_dirs = valid_dirs; // If no safe, use all
-            }
-
-            // Prefer directions with water if thirsty
-            std::vector<int> water_dirs;
-            if (thirst < 0.4f) { // Very thirsty
-                for (int dir : safe_dirs) {
-                    auto [nq, nr] = grid.get_neighbor_coords(q, r, dir);
-                    if (grid.get_terrain_type(nq, nr) == WATER) {
-                        water_dirs.push_back(dir);
-                    }
-                }
-            }
-
-            // Prefer directions with edible plants (not seeds)
-            std::vector<int> plant_dirs;
-            for (int dir : safe_dirs) {
-                auto [nq, nr] = grid.get_neighbor_coords(q, r, dir);
-                Plant* p = grid.get_plant(nq, nr);
-                if (p && p->stage != SEED) {
-                    plant_dirs.push_back(dir);
-                }
-            }
-            // Use genome to decide movement strategy
-            std::uniform_real_distribution<float> prob_dist(0.0f, 1.0f);
-            float prob = prob_dist(rng);
-            const std::vector<int>* chosen_dirs = &safe_dirs;
-            // Prioritize water when very thirsty
-            if (!water_dirs.empty() && thirst < 0.3f) {
-                chosen_dirs = &water_dirs;
-            } else if (!plant_dirs.empty() && prob < genome.movement_aggression) {
-                chosen_dirs = &plant_dirs;
-            }
-            int chosen_dir = (*chosen_dirs)[gen() % chosen_dirs->size()];
-            TerrainType prev_terr = grid.get_terrain_type(q, r);
-            move(chosen_dir);
-            TerrainType current_terr = grid.get_terrain_type(q, r);
-            energy -= 0.02f / genome.movement_efficiency; // Energy cost per move, modified by efficiency
-            move_timer = 0.0f; // Reset timer on move
-
-            // Log entering water
-            if (prev_terr != WATER && current_terr == WATER) {
-                std::cout << "Hare jumped to water at (" << q << ", " << r << "), fear=" << genome.fear << std::endl;
-            }
-
-            // Check for drowning in water
-            if (current_terr == WATER) {
-                consecutive_water_moves++;
-                if (consecutive_water_moves > 2) {
-                    is_dead = true;
-                    std::cout << "Hare drowned at (" << q << ", " << r << ")" << std::endl;
-                }
-            } else {
-                consecutive_water_moves = 0;
-            }
-        }
-    }
-
-    // Handle pregnancy
-    if (energy > genome.reproduction_threshold && !is_pregnant) {
-        is_pregnant = true;
-        pregnancy_timer = 10.0f; // 10 seconds pregnancy
-        energy = 0.75f; // Reset energy
-    }
-
-    if (is_pregnant) {
-        pregnancy_timer -= delta_time;
-        if (pregnancy_timer <= 0.0f) {
-            ready_to_give_birth = true;
-            is_pregnant = false;
-        }
-    }
-
-    // Check for death
-    if (energy <= 0.0f && !is_dead) {
-        is_dead = true;
-        // Increase nutrients on soil
-        auto it = grid.terrainTiles.find({q, r});
-        if (it != grid.terrainTiles.end() && it->second.type == SOIL) {
-            it->second.nutrients = std::min(1.0f, it->second.nutrients + 0.2f);
-        }
-        // std::cout << "Hare died at (" << q << ", " << r << ")" << std::endl;
-    }
-
-    // Check for death by dehydration
-    if (thirst <= 0.0f && !is_dead) {
-        is_dead = true;
-        // Increase nutrients on soil
-        auto it = grid.terrainTiles.find({q, r});
-        if (it != grid.terrainTiles.end() && it->second.type == SOIL) {
-            it->second.nutrients = std::min(1.0f, it->second.nutrients + 0.2f);
-        }
-        std::cout << "Hare died of dehydration at (" << q << ", " << r << ")" << std::endl;
-    }
-}
-
-sf::Color Hare::getColor() const {
-    // Quantize genome values to get similar colors for similar genomes
-    int thresh_bin = std::clamp(static_cast<int>((genome.reproduction_threshold - 1.0f) / 1.0f * 4), 0, 3);
-    int aggression_bin = std::clamp(static_cast<int>(genome.movement_aggression * 3), 0, 2);
-    int weight_bin = std::clamp(static_cast<int>((genome.weight - 0.5f) / 1.0f * 2), 0, 1);
-    int index = thresh_bin * 6 + aggression_bin * 2 + weight_bin;
-
-    // Palette of colors: interpolated grays, browns, pinks, white
-    static const std::vector<sf::Color> palette = {
-        // Grays
-        sf::Color(128, 128, 128), // Gray
-        sf::Color(149, 149, 149), // Mid gray 1
-        sf::Color(169, 169, 169), // Dark gray
-        sf::Color(190, 190, 190), // Mid gray 2
-        sf::Color(211, 211, 211), // Light gray
-        // Browns
-        sf::Color(139, 69, 19),   // Brown
-        sf::Color(150, 76, 32),   // Brown mid 1
-        sf::Color(160, 82, 45),   // Sienna
-        sf::Color(183, 108, 54),  // Brown mid 2
-        sf::Color(205, 133, 63),  // Peru
-        // Pinks and white
-        sf::Color(255, 192, 203), // Soft pink
-        sf::Color(255, 187, 198), // Pink mid 1
-        sf::Color(255, 182, 193), // Light pink
-        sf::Color(255, 219, 219), // Pink mid 2
-        sf::Color(255, 255, 255)  // White
-    };
-
-    return palette[index % palette.size()];
-}
-
-bool Hare::eat(HexGrid& grid) {
-    Plant* plant = grid.get_plant(q, r);
-    if (plant && plant->stage == PLANT) {
-        return true;
-    }
-    return false;
-}
-
-// ============================================================================
-// FOX IMPLEMENTATION
-// ============================================================================
-
-void Fox::update(HexGrid& grid, std::vector<Hare>& hares, const std::vector<Fox>& foxes, float delta_time, std::mt19937& rng) {
-    if (is_dead) return;  // Already dead
-
-    // Update positions
-    update_positions(grid);
-
-    // Interpolate position
-    const float anim_speed = 200.0f; // pixels per second
-    sf::Vector2f diff = target_pos - current_pos;
-    float dist = std::sqrt(diff.x * diff.x + diff.y * diff.y);
-    if (dist > 0.1f) {
-        sf::Vector2f dir = diff / dist;
-        current_pos += dir * anim_speed * delta_time;
-        if ((target_pos - current_pos).length() < anim_speed * delta_time) current_pos = target_pos;
-    }
-
-    // Small time-based energy decay
-    energy -= delta_time * 0.012f;  // Slightly faster decay
-    energy = std::max(0.0f, energy);
-    // Debug: log energy occasionally
-    if (gen() % 1000 == 0) std::cout << "Fox energy: " << energy << std::endl;
-
-    // Thirst decay over time
-    thirst -= delta_time * 0.01f; // Similar to energy decay
-    thirst = std::max(0.0f, thirst);
-
-    // Drink if on water edge (foxes don't swim but drink at edges)
-    if (grid.get_terrain_type(q, r) == WATER) {
-        thirst = std::min(1.0f, thirst + delta_time * 0.5f); // Quick rehydration
-    }
-
-    // Digest
-    digestion_time -= delta_time;
-
-    // Hunt if possible
-    bool hunted = hunt(grid, hares, foxes);
-    if (hunted) {
-        digestion_time = 10.0f;  // 10 seconds digestion
     }
 
     // Handle pregnancy
@@ -932,35 +667,35 @@ void Fox::update(HexGrid& grid, std::vector<Hare>& hares, const std::vector<Fox>
                 valid_dirs = no_fire_dirs;
             }
 
-            // Prefer directions towards visible hares within vision range
-            std::vector<int> hare_dirs;
+            // Prefer directions away from visible foxes within vision range
+            std::vector<int> avoid_dirs;
             const int vision_range = 3; // Hexes away
-            int closest_hare_q = -1000, closest_hare_r = -1000;
+            int closest_fox_q = -1000, closest_fox_r = -1000;
             int min_dist = vision_range + 1;
-            for (const auto& hare : hares) {
-                if (hare.is_dead) continue;
-                int dq = hare.q - q;
-                int dr = hare.r - r;
+            for (const auto& fox : foxes) {
+                if (fox.is_dead) continue;
+                int dq = fox.q - q;
+                int dr = fox.r - r;
                 int dist = (std::abs(dq) + std::abs(dr) + std::abs(dq + dr)) / 2; // Hex distance
                 if (dist <= vision_range && dist > 0 && dist < min_dist) {
-                    TerrainType terr = grid.get_terrain_type(hare.q, hare.r);
-                    float visibility = hare.is_burrowing ? 0.0f : HexGrid::calculate_visibility(hare.getColor(), terr);
+                    TerrainType terr = grid.get_terrain_type(fox.q, fox.r);
+                    float visibility = HexGrid::calculate_visibility(fox.getColor(), terr);
                     if (visibility > 0.1f) {
                         min_dist = dist;
-                        closest_hare_q = hare.q;
-                        closest_hare_r = hare.r;
+                        closest_fox_q = fox.q;
+                        closest_fox_r = fox.r;
                     }
                 }
             }
-            if (closest_hare_q != -1000) {
-                // Move towards the closest visible hare
+            if (closest_fox_q != -1000) {
+                // Move away from the closest visible fox
                 for (int dir : valid_dirs) {
                     auto [nnq, nnr] = grid.get_neighbor_coords(q, r, dir);
-                    int new_dq = closest_hare_q - nnq;
-                    int new_dr = closest_hare_r - nnr;
+                    int new_dq = closest_fox_q - nnq;
+                    int new_dr = closest_fox_r - nnr;
                     int new_dist = (std::abs(new_dq) + std::abs(new_dr) + std::abs(new_dq + new_dr)) / 2;
-                    if (new_dist < min_dist) {
-                        hare_dirs.push_back(dir);
+                    if (new_dist > min_dist) {
+                        avoid_dirs.push_back(dir);
                     }
                 }
             }
@@ -981,8 +716,8 @@ void Fox::update(HexGrid& grid, std::vector<Hare>& hares, const std::vector<Fox>
             // Prioritize water when extremely thirsty
             if (!water_dirs.empty() && thirst < 0.2f) {
                 chosen_dirs = &water_dirs;
-            } else if (!hare_dirs.empty() && prob_dist(rng) < genome.hunting_aggression) {
-                chosen_dirs = &hare_dirs;
+            } else if (!avoid_dirs.empty() && prob_dist(rng) < genome.fear) {
+                chosen_dirs = &avoid_dirs;
             }
             int chosen_dir = (*chosen_dirs)[gen() % chosen_dirs->size()];
             move(chosen_dir);
@@ -1397,6 +1132,185 @@ void Salmon::update(HexGrid& grid, float delta_time, std::mt19937& rng) {
     // Die if no energy
     if (energy <= 0.0f) {
         is_dead = true;
+    }
+}
+
+bool Hare::eat(HexGrid& grid) {
+    Plant* plant = grid.get_plant(q, r);
+    if (plant && plant->stage == PLANT) {
+        return true;
+    }
+    return false;
+}
+
+sf::Color Hare::getColor() const {
+    return base_color;
+}
+
+// ============================================================================
+// FOX IMPLEMENTATION
+// ============================================================================
+
+void Fox::update(HexGrid& grid, std::vector<Hare>& hares, const std::vector<Fox>& foxes, float delta_time, std::mt19937& rng) {
+    if (is_dead) return;  // Already dead
+
+    // Update positions
+    update_positions(grid);
+
+    // Interpolate position
+    const float anim_speed = 50.0f; // pixels per second, slow motion
+    sf::Vector2f diff = target_pos - current_pos;
+    float dist = std::sqrt(diff.x * diff.x + diff.y * diff.y);
+    if (dist > 0.1f) {
+        sf::Vector2f dir = diff / dist;
+        current_pos += dir * anim_speed * delta_time;
+        if ((target_pos - current_pos).length() < anim_speed * delta_time) current_pos = target_pos;
+    }
+
+    // Small time-based energy decay
+    energy -= delta_time * 0.008f;  // Slower decay for longer lifespan
+    energy = std::max(0.0f, energy);
+
+    // Thirst decay over time
+    thirst -= delta_time * 0.008f; // Slower decay for longer lifespan
+    thirst = std::max(0.0f, thirst);
+
+    // Drink if on water edge (foxes don't swim but drink at edges)
+    if (grid.get_terrain_type(q, r) == WATER) {
+        thirst = std::min(1.0f, thirst + delta_time * 0.5f); // Quick rehydration
+    }
+
+    // Digest
+    digestion_time -= delta_time;
+
+    // Hunt if possible
+    bool hunted = hunt(grid, hares, foxes);
+    if (hunted) {
+        digestion_time = 10.0f;  // 10 seconds digestion
+    }
+
+    // Handle pregnancy
+    if (energy > genome.reproduction_threshold && !is_pregnant) {
+        is_pregnant = true;
+        pregnancy_timer = 20.0f; // 20 seconds pregnancy
+        energy = 1.5f; // Reset energy
+    }
+
+    if (is_pregnant) {
+        pregnancy_timer -= delta_time;
+        if (pregnancy_timer <= 0.0f) {
+            ready_to_give_birth = true;
+            is_pregnant = false;
+        }
+    }
+
+    // Move if energy allows and cooldown passed
+    move_timer += delta_time;
+    if (move_timer >= 0.4f && energy > 0.0f) {  // Keep hunting even on low energy
+        // Find valid directions
+        std::vector<int> valid_dirs;
+        for (int dir = 0; dir < 6; ++dir) {
+            auto [nq, nr] = grid.get_neighbor_coords(q, r, dir);
+            if (grid.has_hexagon(nq, nr)) {
+                TerrainType terr = grid.get_terrain_type(nq, nr);
+                if (std::find(allowed_terrains.begin(), allowed_terrains.end(), terr) != allowed_terrains.end()) {
+                    valid_dirs.push_back(dir);
+                }
+            }
+        }
+
+        if (!valid_dirs.empty()) {
+            // Avoid fire (always)
+            std::vector<int> no_fire_dirs;
+            for (int dir : valid_dirs) {
+                auto [nq, nr] = grid.get_neighbor_coords(q, r, dir);
+                if (grid.fire_timers.find({nq, nr}) == grid.fire_timers.end()) {
+                    no_fire_dirs.push_back(dir);
+                }
+            }
+            if (!no_fire_dirs.empty()) {
+                valid_dirs = no_fire_dirs;
+            }
+
+            // Prefer directions towards visible hares within vision range
+            std::vector<int> hare_dirs;
+            const int vision_range = 3; // Hexes away
+            int closest_hare_q = -1000, closest_hare_r = -1000;
+            int min_dist = vision_range + 1;
+            for (const auto& hare : hares) {
+                if (hare.is_dead) continue;
+                int dq = hare.q - q;
+                int dr = hare.r - r;
+                int dist = (std::abs(dq) + std::abs(dr) + std::abs(dq + dr)) / 2; // Hex distance
+                if (dist <= vision_range && dist > 0 && dist < min_dist) {
+                    TerrainType terr = grid.get_terrain_type(hare.q, hare.r);
+                    float visibility = hare.is_burrowing ? 0.0f : HexGrid::calculate_visibility(hare.getColor(), terr);
+                    if (visibility > 0.1f) {
+                        min_dist = dist;
+                        closest_hare_q = hare.q;
+                        closest_hare_r = hare.r;
+                    }
+                }
+            }
+            if (closest_hare_q != -1000) {
+                // Move towards the closest visible hare
+                for (int dir : valid_dirs) {
+                    auto [nnq, nnr] = grid.get_neighbor_coords(q, r, dir);
+                    int new_dq = closest_hare_q - nnq;
+                    int new_dr = closest_hare_r - nnr;
+                    int new_dist = (std::abs(new_dq) + std::abs(new_dr) + std::abs(new_dq + new_dr)) / 2;
+                    if (new_dist < min_dist) {
+                        hare_dirs.push_back(dir);
+                    }
+                }
+            }
+
+            // Prefer directions with water if very thirsty
+            std::vector<int> water_dirs;
+            if (thirst < 0.3f) {
+                for (int dir : valid_dirs) {
+                    auto [nq, nr] = grid.get_neighbor_coords(q, r, dir);
+                    if (grid.get_terrain_type(nq, nr) == WATER) {
+                        water_dirs.push_back(dir);
+                    }
+                }
+            }
+
+            std::uniform_real_distribution<float> prob_dist(0.0f, 1.0f);
+            const std::vector<int>* chosen_dirs = &valid_dirs;
+            // Prioritize water when extremely thirsty
+            if (!water_dirs.empty() && thirst < 0.2f) {
+                chosen_dirs = &water_dirs;
+            } else if (!hare_dirs.empty() && prob_dist(rng) < genome.hunting_aggression) {
+                chosen_dirs = &hare_dirs;
+            }
+            int chosen_dir = (*chosen_dirs)[gen() % chosen_dirs->size()];
+            move(chosen_dir);
+            energy -= 0.05f / genome.movement_efficiency; // Energy cost, modified by efficiency
+            move_timer = 0.0f;
+        }
+    }
+
+    // Check for death
+    if (energy <= 0.0f && !is_dead) {
+        is_dead = true;
+        // Increase nutrients on soil
+        auto it = grid.terrainTiles.find({q, r});
+        if (it != grid.terrainTiles.end() && it->second.type == SOIL) {
+            it->second.nutrients = std::min(1.0f, it->second.nutrients + 0.3f);
+        }
+        std::cout << "Fox died at (" << q << ", " << r << "), starved" << std::endl;
+    }
+
+    // Check for death by dehydration
+    if (thirst <= 0.0f && !is_dead) {
+        is_dead = true;
+        // Increase nutrients on soil
+        auto it = grid.terrainTiles.find({q, r});
+        if (it != grid.terrainTiles.end() && it->second.type == SOIL) {
+            it->second.nutrients = std::min(1.0f, it->second.nutrients + 0.3f);
+        }
+        std::cout << "Fox died of dehydration at (" << q << ", " << r << ")" << std::endl;
     }
 }
 
