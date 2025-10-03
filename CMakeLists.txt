@@ -12,6 +12,9 @@ set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -Wall -Wextra -fsanitize=
 # Find SFML
 find_package(SFML 3.0 REQUIRED COMPONENTS Graphics Window System)
 
+# Find TBB
+find_package(TBB REQUIRED)
+
 # Include directories
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
@@ -30,6 +33,7 @@ target_link_libraries(hexaworld
     sfml-graphics
     sfml-window
     sfml-system
+    TBB::tbb
 )
 
 # Copy assets if any (none for now)

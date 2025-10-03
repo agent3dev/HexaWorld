@@ -568,13 +568,28 @@ void Hare::update(HexGrid& grid, const std::vector<Fox>& foxes, float delta_time
     update_positions(grid);
 
     // Interpolate position
-    const float anim_speed = 200.0f; // pixels per second
+    const float anim_speed = 50.0f; // pixels per second, slow motion
     sf::Vector2f diff = target_pos - current_pos;
     float dist = std::sqrt(diff.x * diff.x + diff.y * diff.y);
     if (dist > 0.1f) {
         sf::Vector2f dir = diff / dist;
         current_pos += dir * anim_speed * delta_time;
         if ((target_pos - current_pos).length() < anim_speed * delta_time) current_pos = target_pos;
+    }
+
+    // Handle eating
+    if (is_eating) {
+        eating_timer -= delta_time;
+        if (eating_timer <= 0) {
+            Plant* plant = grid.get_plant(q, r);
+            if (plant && plant->stage == PLANT) {
+                energy += 0.5f;
+                energy = std::min(2.0f, energy);
+                grid.remove_plant(q, r);
+            }
+            is_eating = false;
+        }
+        return; // Don't move while eating
     }
 
     // Small time-based energy decay
@@ -593,10 +608,13 @@ void Hare::update(HexGrid& grid, const std::vector<Fox>& foxes, float delta_time
     // Digest
     digestion_time -= delta_time;
 
-    // Eat if on plant
-    bool ate = eat(grid);
-    if (ate) {
-        digestion_time = 5.0f;  // 5 seconds digestion
+    // Eat if possible
+    if (!is_eating && digestion_time <= 0.0f) {
+        if (eat(grid)) {
+            digestion_time = 2.0f;
+            is_eating = true;
+            eating_timer = 2.0f;
+        }
     }
 
     // Poop after digestion
@@ -814,15 +832,7 @@ sf::Color Hare::getColor() const {
 
 bool Hare::eat(HexGrid& grid) {
     Plant* plant = grid.get_plant(q, r);
-    if (plant && plant->stage != SEED) {  // Cannot eat seeds
-        // Gain energy based on stage
-        switch (plant->stage) {
-            case SPROUT: energy += 0.3f; break;
-            case PLANT: energy += 0.5f; break;
-            default: break;
-        }
-        // No cap here; allow energy to exceed 1.5 for reproduction
-        grid.remove_plant(q, r);
+    if (plant && plant->stage == PLANT) {
         return true;
     }
     return false;

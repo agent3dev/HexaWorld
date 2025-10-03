@@ -173,7 +173,7 @@ int main() {
         bool showObject = false;
 
         // Dashboard toggle
-        bool show_dashboard = true;
+        bool show_dashboard = false;
 
         // Hare logging
         bool enableHareLogging = true;
@@ -247,7 +247,7 @@ int main() {
             }
         }
         std::shuffle(fox_soil_coords.begin(), fox_soil_coords.end(), gen);
-        size_t num_foxes = std::max<size_t>(5, grid_size / 1000);
+        size_t num_foxes = std::max<size_t>(2, grid_size / 1500);
         num_foxes = std::min(num_foxes, fox_soil_coords.size());
         for (size_t i = 0; i < num_foxes; ++i) {
             auto [q, r] = fox_soil_coords[i];
@@ -272,7 +272,7 @@ int main() {
             }
         }
         std::shuffle(wolf_soil_coords.begin(), wolf_soil_coords.end(), gen);
-        size_t num_wolves = std::max<size_t>(2, grid_size / 2000);
+        size_t num_wolves = std::max<size_t>(1, grid_size / 3000);
         num_wolves = std::min(num_wolves, wolf_soil_coords.size());
         for (size_t i = 0; i < num_wolves; ++i) {
             auto [q, r] = wolf_soil_coords[i];
@@ -318,8 +318,8 @@ int main() {
                 lastLoggedKey = currentKey;
             }
 
-            // Fallback ESC check
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Escape)) {
+            // Fallback ESC or Q check
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Escape) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Q)) {
                 break;
             }
 
@@ -466,25 +466,25 @@ int main() {
                  fire_spread_timer -= 2.0f; // or = 0.0f
              }
 
-             // Update hares
-             for (auto& hare : hares) {
-                 hare.update(hexGrid, foxes, dt, gen);
-             }
+              // Update hares
+              for (auto& hare : hares) {
+                  hare.update(hexGrid, foxes, dt, gen);
+              }
 
-             // Update salmons
-             for (auto& salmon : salmons) {
-                 salmon.update(hexGrid, dt, gen);
-             }
+              // Update salmons
+              for (auto& salmon : salmons) {
+                  salmon.update(hexGrid, dt, gen);
+              }
 
-             // Update foxes
-             for (auto& fox : foxes) {
-                 fox.update(hexGrid, hares, foxes, dt, gen);
-             }
+              // Update foxes
+              for (auto& fox : foxes) {
+                  fox.update(hexGrid, hares, foxes, dt, gen);
+              }
 
-             // Update wolves
-             for (auto& wolf : wolves) {
-                 wolf.update(hexGrid, hares, foxes, dt, gen);
-             }
+              // Update wolves
+              for (auto& wolf : wolves) {
+                  wolf.update(hexGrid, hares, foxes, dt, gen);
+              }
 
              // Animals die in fire
              for (auto& hare : hares) {
@@ -538,7 +538,7 @@ int main() {
                     // Create offspring at same position
                     foxes.push_back(Fox(fox.q, fox.r));
                     foxes.back().genome = fox.genome.mutate(gen);
-                    foxes.back().energy = 3.0f; // Starting energy for offspring
+                    foxes.back().energy = 1.5f; // Starting energy for offspring
                     fox.ready_to_give_birth = false;
                     std::cout << "Fox gave birth at (" << fox.q << ", " << fox.r << ")" << std::endl;
                 }
@@ -742,16 +742,17 @@ int main() {
                   sf::Color color = hare.getColor();
                   // Scale based on energy (newborns start small but visible)
                   float scale = std::max(0.8f, std::min(hare.energy / 1.0f, 1.0f));
-                  float head_size = 6.0f * scale;
-                  float ear_size = 2.0f * scale;
-                  float eye_size = 1.0f * scale;
-                  float ear_offset_x = 3.0f * scale;
-                  float ear_offset_y = 6.0f * scale;
-                  float eye_offset = 2.0f * scale;
+                   float head_size = 4.0f * scale;
+                   float ear_width = 1.5f * scale;
+                   float ear_height = 4.0f * scale; // Longer ears
+                   float eye_size = 0.8f * scale;
+                   float ear_offset_x = 2.0f * scale;
+                   float ear_offset_y = 4.0f * scale;
+                   float eye_offset = 1.5f * scale;
                   // Draw hare as simple face: head circle, ears, eyes
                   renderer.drawCircle(hare_x, hare_y, head_size, color.r, color.g, color.b, 255); // Head
-                  renderer.drawCircle(hare_x - ear_offset_x, hare_y - ear_offset_y, ear_size, std::max(0, (int)color.r - 20), std::max(0, (int)color.g - 20), std::max(0, (int)color.b - 20), 255); // Left ear
-                  renderer.drawCircle(hare_x + ear_offset_x, hare_y - ear_offset_y, ear_size, std::max(0, (int)color.r - 20), std::max(0, (int)color.g - 20), std::max(0, (int)color.b - 20), 255); // Right ear
+                   renderer.drawRectangle(hare_x - ear_offset_x - ear_width/2, hare_y - ear_offset_y - ear_height/2, ear_width, ear_height, std::max(0, (int)color.r - 20), std::max(0, (int)color.g - 20), std::max(0, (int)color.b - 20), 255); // Left ear
+                   renderer.drawRectangle(hare_x + ear_offset_x - ear_width/2, hare_y - ear_offset_y - ear_height/2, ear_width, ear_height, std::max(0, (int)color.r - 20), std::max(0, (int)color.g - 20), std::max(0, (int)color.b - 20), 255); // Right ear
                   renderer.drawCircle(hare_x - eye_offset, hare_y - eye_offset, eye_size, 0, 0, 0, 255); // Left eye
                   renderer.drawCircle(hare_x + eye_offset, hare_y - eye_offset, eye_size, 0, 0, 0, 255); // Right eye
               }
@@ -804,28 +805,28 @@ int main() {
                   // Scale based on energy (newborns start smaller but visible)
                   float scale = std::max(0.9f, std::min(fox.energy / 3.5f, 1.0f));
                   // Draw fox as triangle head with ears
-                  std::vector<std::pair<float, float>> head_points = {
-                      {fox_x, fox_y + 7 * scale}, // Bottom
-                      {fox_x - 6 * scale, fox_y - 3.5f * scale}, // Top left
-                      {fox_x + 6 * scale, fox_y - 3.5f * scale}  // Top right
-                  };
+                   std::vector<std::pair<float, float>> head_points = {
+                       {fox_x, fox_y + 9 * scale}, // Bottom
+                       {fox_x - 8 * scale, fox_y - 4.5f * scale}, // Top left
+                       {fox_x + 8 * scale, fox_y - 4.5f * scale}  // Top right
+                   };
                   renderer.drawConvexShape(head_points, color.r, color.g, color.b, 255);
                   // Ears
-                  std::vector<std::pair<float, float>> left_ear = {
-                      {fox_x - 6 * scale, fox_y - 3.5f * scale}, // Base left
-                      {fox_x - 3.5f * scale, fox_y - 3.5f * scale}, // Base right
-                      {fox_x - 4.5f * scale, fox_y - 7 * scale}  // Tip
-                  };
+                   std::vector<std::pair<float, float>> left_ear = {
+                       {fox_x - 8 * scale, fox_y - 4.5f * scale}, // Base left
+                       {fox_x - 4.5f * scale, fox_y - 4.5f * scale}, // Base right
+                       {fox_x - 5.5f * scale, fox_y - 9 * scale}  // Tip
+                   };
                   renderer.drawConvexShape(left_ear, color.r, color.g, color.b, 255);
-                  std::vector<std::pair<float, float>> right_ear = {
-                      {fox_x + 3.5f * scale, fox_y - 3.5f * scale}, // Base left
-                      {fox_x + 6 * scale, fox_y - 3.5f * scale}, // Base right
-                      {fox_x + 4.5f * scale, fox_y - 7 * scale}  // Tip
-                  };
+                   std::vector<std::pair<float, float>> right_ear = {
+                       {fox_x + 4.5f * scale, fox_y - 4.5f * scale}, // Base left
+                       {fox_x + 8 * scale, fox_y - 4.5f * scale}, // Base right
+                       {fox_x + 5.5f * scale, fox_y - 9 * scale}  // Tip
+                   };
                   renderer.drawConvexShape(right_ear, color.r, color.g, color.b, 255);
-                  // Eyes
-                  renderer.drawCircle(fox_x - 2 * scale, fox_y + 1.5f * scale, 1.0f * scale, 255, 255, 255, 255); // Left eye
-                  renderer.drawCircle(fox_x + 2 * scale, fox_y + 1.5f * scale, 1.0f * scale, 255, 255, 255, 255); // Right eye
+                   // Eyes
+                   renderer.drawCircle(fox_x - 2.5f * scale, fox_y + 2 * scale, 1.2f * scale, 255, 255, 255, 255); // Left eye
+                   renderer.drawCircle(fox_x + 2.5f * scale, fox_y + 2 * scale, 1.2f * scale, 255, 255, 255, 255); // Right eye
               }
 
                // Draw wolves
@@ -836,34 +837,34 @@ int main() {
                    // Scale based on energy (newborns start smaller but visible)
                    float scale = std::max(0.9f, std::min(wolf.energy / 5.0f, 1.0f));
                    // Draw wolf as larger triangle head with ears
-                   std::vector<std::pair<float, float>> head_points = {
-                       {wolf_x, wolf_y + 10 * scale}, // Bottom
-                       {wolf_x - 8 * scale, wolf_y - 5 * scale}, // Top left
-                       {wolf_x + 8 * scale, wolf_y - 5 * scale}  // Top right
-                   };
+                    std::vector<std::pair<float, float>> head_points = {
+                        {wolf_x, wolf_y + 12 * scale}, // Bottom
+                        {wolf_x - 10 * scale, wolf_y - 6 * scale}, // Top left
+                        {wolf_x + 10 * scale, wolf_y - 6 * scale}  // Top right
+                    };
                    renderer.drawConvexShape(head_points, color.r, color.g, color.b, 255);
                    // Ears
-                   std::vector<std::pair<float, float>> left_ear = {
-                       {wolf_x - 8 * scale, wolf_y - 5 * scale}, // Base left
-                       {wolf_x - 5 * scale, wolf_y - 5 * scale}, // Base right
-                       {wolf_x - 6.5f * scale, wolf_y - 10 * scale}  // Tip
-                   };
+                    std::vector<std::pair<float, float>> left_ear = {
+                        {wolf_x - 10 * scale, wolf_y - 6 * scale}, // Base left
+                        {wolf_x - 6 * scale, wolf_y - 6 * scale}, // Base right
+                        {wolf_x - 7.5f * scale, wolf_y - 12 * scale}  // Tip
+                    };
                    renderer.drawConvexShape(left_ear, color.r, color.g, color.b, 255);
-                   std::vector<std::pair<float, float>> right_ear = {
-                       {wolf_x + 5 * scale, wolf_y - 5 * scale}, // Base left
-                       {wolf_x + 8 * scale, wolf_y - 5 * scale}, // Base right
-                       {wolf_x + 6.5f * scale, wolf_y - 10 * scale}  // Tip
-                   };
+                    std::vector<std::pair<float, float>> right_ear = {
+                        {wolf_x + 6 * scale, wolf_y - 6 * scale}, // Base left
+                        {wolf_x + 10 * scale, wolf_y - 6 * scale}, // Base right
+                        {wolf_x + 7.5f * scale, wolf_y - 12 * scale}  // Tip
+                    };
                    renderer.drawConvexShape(right_ear, color.r, color.g, color.b, 255);
-                   // Eyes
-                   renderer.drawCircle(wolf_x - 2.5f * scale, wolf_y + 2 * scale, 1.2f * scale, 255, 255, 255, 255); // Left eye
-                   renderer.drawCircle(wolf_x + 2.5f * scale, wolf_y + 2 * scale, 1.2f * scale, 255, 255, 255, 255); // Right eye
+                    // Eyes
+                    renderer.drawCircle(wolf_x - 3 * scale, wolf_y + 2.5f * scale, 1.5f * scale, 255, 255, 255, 255); // Left eye
+                    renderer.drawCircle(wolf_x + 3 * scale, wolf_y + 2.5f * scale, 1.5f * scale, 255, 255, 255, 255); // Right eye
                }
 
-              if (show_dashboard) {
-                  // Draw population graph (bottom 4% of screen)
-                  int graph_height = renderer.getHeight() / 25;
-                  int graph_y = renderer.getHeight() - graph_height;
+               if (show_dashboard) {
+                   // Draw population graph (bottom 8% of screen)
+                   int graph_height = renderer.getHeight() / 25 * 2;
+                   int graph_y = renderer.getHeight() - graph_height;
                   renderer.drawRectangle(0, graph_y, renderer.getWidth(), graph_height, 0, 0, 0, 150); // Semi-transparent background
                    if (!hare_history.empty()) {
                       int max_count = 0;

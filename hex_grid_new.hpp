@@ -138,6 +138,8 @@ struct Hare : public HexObject {
     sf::Vector2f current_pos;
     sf::Vector2f target_pos;
     bool is_burrowing = false;
+    float eating_timer = 0.0f;
+    bool is_eating = false;
 
     Hare(int q, int r) : HexObject(q, r), genome() { update_speed(); }
 
