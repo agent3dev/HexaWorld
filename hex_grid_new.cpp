@@ -250,26 +250,164 @@ void HexGrid::draw(SFMLRenderer& renderer, uint8_t r, uint8_t g, uint8_t b,
             // Add wavy texture for water
             if (type == WATER) {
                 std::mt19937 wave_gen(q * 1000 + r_coord);
-                std::uniform_real_distribution<float> offset_dist(-hex_size * 0.4f, hex_size * 0.4f);
-                std::uniform_real_distribution<float> size_dist(0.8f, 1.2f);
+                std::uniform_real_distribution<float> offset_dist(-hex_size * 0.5f, hex_size * 0.5f);
+                std::uniform_real_distribution<float> size_dist(0.6f, 1.4f);
 
-                int num_waves = 12; // More circles for water effect
-                float wave_radius = hex_size * 0.25f;
+                int num_back_waves = 15; // Background subtle waves
+                int num_front_waves = 12; // Foreground lighter waves
+                float wave_radius = hex_size * 0.35f;
 
-                for (int i = 0; i < num_waves; ++i) {
+                // Draw background subtle waves with base colors (darker, more diffused)
+                for (int i = 0; i < num_back_waves; ++i) {
                     float offset_x = offset_dist(wave_gen);
                     float offset_y = offset_dist(wave_gen);
                     float size_mult = size_dist(wave_gen);
                     float radius = wave_radius * size_mult;
 
+                    // Slightly darker than base for subtle depth
+                    int color_var = (wave_gen() % 20) - 10;
+                    uint8_t wave_r = std::clamp((int)(br * 0.8f) + color_var, 0, 255);
+                    uint8_t wave_g = std::clamp((int)(bg * 0.8f) + color_var, 0, 255);
+                    uint8_t wave_b = std::clamp((int)(bb * 0.9f) + color_var, 0, 255);
+                    uint8_t alpha = 40 + (wave_gen() % 60); // Very diffused
+
+                    renderer.drawCircle(cx + offset_x, cy + offset_y, radius, wave_r, wave_g, wave_b, alpha);
+                }
+
+                // Draw foreground lighter waves for highlights
+                for (int i = 0; i < num_front_waves; ++i) {
+                    float offset_x = offset_dist(wave_gen);
+                    float offset_y = offset_dist(wave_gen);
+                    float size_mult = size_dist(wave_gen);
+                    float radius = wave_radius * size_mult * 0.8f; // Slightly smaller
+
                     // Lighter blue variants for wave highlights
-                    int color_var = (wave_gen() % 60) - 10;
+                    int color_var = (wave_gen() % 40) - 10;
                     uint8_t wave_r = std::clamp((int)br + color_var, 0, 255);
                     uint8_t wave_g = std::clamp((int)bg + color_var, 0, 255);
                     uint8_t wave_b = std::clamp((int)bb + color_var + 20, 0, 255); // More blue
-                    uint8_t alpha = 100 + (wave_gen() % 100); // Semi-transparent
+                    uint8_t alpha = 60 + (wave_gen() % 80); // More diffused
 
                     renderer.drawCircle(cx + offset_x, cy + offset_y, radius, wave_r, wave_g, wave_b, alpha);
+                }
+            }
+
+            // Add earthy texture for soil
+            if (type == SOIL) {
+                std::mt19937 soil_gen(q * 1000 + r_coord);
+                std::uniform_real_distribution<float> offset_dist(-hex_size * 0.5f, hex_size * 0.5f);
+                std::uniform_real_distribution<float> size_dist(0.5f, 1.5f);
+
+                int num_dark_patches = 18; // Dark soil patches
+                int num_light_patches = 10; // Lighter dirt spots
+                float patch_radius = hex_size * 0.3f;
+
+                // Draw dark patches using shadow colors for depth
+                for (int i = 0; i < num_dark_patches; ++i) {
+                    float offset_x = offset_dist(soil_gen);
+                    float offset_y = offset_dist(soil_gen);
+                    float size_mult = size_dist(soil_gen);
+                    float radius = patch_radius * size_mult;
+
+                    // Use shadow colors for darker soil patches
+                    int color_var = (soil_gen() % 30) - 15;
+                    uint8_t patch_r = std::clamp((int)shr + color_var, 0, 255);
+                    uint8_t patch_g = std::clamp((int)shg + color_var, 0, 255);
+                    uint8_t patch_b = std::clamp((int)shb + color_var, 0, 255);
+                    uint8_t alpha = 80 + (soil_gen() % 100); // Semi-transparent
+
+                    renderer.drawCircle(cx + offset_x, cy + offset_y, radius, patch_r, patch_g, patch_b, alpha);
+                }
+
+                // Draw lighter patches for variation
+                for (int i = 0; i < num_light_patches; ++i) {
+                    float offset_x = offset_dist(soil_gen);
+                    float offset_y = offset_dist(soil_gen);
+                    float size_mult = size_dist(soil_gen);
+                    float radius = patch_radius * size_mult * 0.7f; // Smaller
+
+                    // Lighter brown variants
+                    int color_var = (soil_gen() % 30);
+                    uint8_t patch_r = std::clamp((int)br + color_var, 0, 255);
+                    uint8_t patch_g = std::clamp((int)bg + color_var, 0, 255);
+                    uint8_t patch_b = std::clamp((int)bb + color_var, 0, 255);
+                    uint8_t alpha = 50 + (soil_gen() % 80); // More diffused
+
+                    renderer.drawCircle(cx + offset_x, cy + offset_y, radius, patch_r, patch_g, patch_b, alpha);
+                }
+            }
+
+            // Add rocky, jagged texture for rocks
+            if (type == ROCK) {
+                std::mt19937 rock_gen(q * 1000 + r_coord);
+                std::uniform_real_distribution<float> offset_dist(-hex_size * 0.5f, hex_size * 0.5f);
+                std::uniform_real_distribution<float> length_dist(hex_size * 0.1f, hex_size * 0.4f);
+                std::uniform_real_distribution<float> angle_dist(0.0f, 6.28318f); // 0 to 2*PI
+
+                int num_dark_lines = 20; // Dark cracks/lines
+                int num_light_lines = 12; // Light edge highlights
+                int num_dots = 25; // Small rocky dots
+
+                // Draw dark jagged lines for cracks and depth
+                for (int i = 0; i < num_dark_lines; ++i) {
+                    float x1 = cx + offset_dist(rock_gen);
+                    float y1 = cy + offset_dist(rock_gen);
+                    float length = length_dist(rock_gen);
+                    float angle = angle_dist(rock_gen);
+                    float x2 = x1 + length * std::cos(angle);
+                    float y2 = y1 + length * std::sin(angle);
+
+                    // Dark lines using shadow colors
+                    int color_var = (rock_gen() % 20) - 10;
+                    uint8_t line_r = std::clamp((int)shr + color_var, 0, 255);
+                    uint8_t line_g = std::clamp((int)shg + color_var, 0, 255);
+                    uint8_t line_b = std::clamp((int)shb + color_var, 0, 255);
+                    uint8_t alpha = 120 + (rock_gen() % 100);
+
+                    renderer.drawLine(x1, y1, x2, y2, line_r, line_g, line_b, alpha, 1.5f);
+                }
+
+                // Draw lighter lines for highlights
+                for (int i = 0; i < num_light_lines; ++i) {
+                    float x1 = cx + offset_dist(rock_gen);
+                    float y1 = cy + offset_dist(rock_gen);
+                    float length = length_dist(rock_gen) * 0.6f;
+                    float angle = angle_dist(rock_gen);
+                    float x2 = x1 + length * std::cos(angle);
+                    float y2 = y1 + length * std::sin(angle);
+
+                    // Lighter grey highlights
+                    int color_var = (rock_gen() % 40);
+                    uint8_t line_r = std::clamp((int)br + color_var, 0, 255);
+                    uint8_t line_g = std::clamp((int)bg + color_var, 0, 255);
+                    uint8_t line_b = std::clamp((int)bb + color_var, 0, 255);
+                    uint8_t alpha = 80 + (rock_gen() % 80);
+
+                    renderer.drawLine(x1, y1, x2, y2, line_r, line_g, line_b, alpha, 1.0f);
+                }
+
+                // Draw small rocky dots for texture
+                for (int i = 0; i < num_dots; ++i) {
+                    float dot_x = cx + offset_dist(rock_gen);
+                    float dot_y = cy + offset_dist(rock_gen);
+                    float dot_radius = 0.5f + (rock_gen() % 20) * 0.1f; // 0.5-2.5 pixels
+
+                    // Mix of dark and light dots
+                    bool is_dark = (rock_gen() % 2) == 0;
+                    int color_var = (rock_gen() % 30) - 15;
+                    uint8_t dot_r, dot_g, dot_b;
+                    if (is_dark) {
+                        dot_r = std::clamp((int)shr + color_var, 0, 255);
+                        dot_g = std::clamp((int)shg + color_var, 0, 255);
+                        dot_b = std::clamp((int)shb + color_var, 0, 255);
+                    } else {
+                        dot_r = std::clamp((int)br + color_var + 20, 0, 255);
+                        dot_g = std::clamp((int)bg + color_var + 20, 0, 255);
+                        dot_b = std::clamp((int)bb + color_var + 20, 0, 255);
+                    }
+                    uint8_t alpha = 100 + (rock_gen() % 120);
+
+                    renderer.drawCircle(dot_x, dot_y, dot_radius, dot_r, dot_g, dot_b, alpha);
                 }
             }
         }
